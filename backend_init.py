@@ -45,17 +45,24 @@ def wait_for_database(engine_factory: Callable[[], object]) -> object:
 
 def ensure_schema_updates(engine) -> None:
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
-        return
+    dialect = engine.dialect.name
 
-    user_columns = {column["name"] for column in inspector.get_columns("users")}
-    if "is_monitor" not in user_columns:
-        with engine.begin() as connection:
-            if engine.dialect.name == "postgresql":
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT FALSE"))
-            else:
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"))
-        print("Schema updated: added users.is_monitor column.")
+    if "users" in inspector.get_table_names():
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "is_monitor" not in user_columns:
+            with engine.begin() as connection:
+                if dialect == "postgresql":
+                    connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT FALSE"))
+                else:
+                    connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"))
+            print("Schema updated: added users.is_monitor column.")
+
+    if "subjects" in inspector.get_table_names():
+        subject_columns = {column["name"] for column in inspector.get_columns("subjects")}
+        if "teacher_id" not in subject_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE subjects ADD COLUMN teacher_id INTEGER"))
+            print("Schema updated: added subjects.teacher_id column.")
 
 
 def ensure_admin_user(db: Session) -> None:

@@ -10,22 +10,34 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def _add_column_if_missing(inspector, table_name: str, column_name: str, ddl: str) -> bool:
+    if table_name not in inspector.get_table_names():
+        return False
+
+    columns = {column["name"] for column in inspector.get_columns(table_name)}
+    if column_name in columns:
+        return False
+
+    with engine.begin() as connection:
+        connection.execute(text(ddl))
+    return True
+
+
 def ensure_compatible_schema() -> None:
     """Lightweight runtime migration for environments without Alembic."""
     try:
         inspector = inspect(engine)
-        if "users" not in inspector.get_table_names():
-            return
+        dialect = engine.dialect.name
 
-        user_columns = {column["name"] for column in inspector.get_columns("users")}
-        if "is_monitor" in user_columns:
-            return
+        user_monitor_ddl = (
+            "ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT FALSE"
+            if dialect == "postgresql"
+            else "ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"
+        )
+        subject_teacher_ddl = "ALTER TABLE subjects ADD COLUMN teacher_id INTEGER"
 
-        with engine.begin() as connection:
-            if engine.dialect.name == "postgresql":
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT FALSE"))
-            else:
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"))
+        _add_column_if_missing(inspector, "users", "is_monitor", user_monitor_ddl)
+        _add_column_if_missing(inspector, "subjects", "teacher_id", subject_teacher_ddl)
     except Exception:
         # Ignore migration errors here; normal startup/table creation flow will continue.
         pass
