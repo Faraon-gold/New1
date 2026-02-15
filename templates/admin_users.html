@@ -3,7 +3,10 @@
 {% block title %}Управление пользователями и группами - {{ super() }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-1">Управление пользователями и группами</h2>
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h2 class="mb-0">Управление пользователями и группами</h2>
+  <a href="/app" class="btn btn-outline-secondary">На главную</a>
+</div>
 <p class="text-muted mb-3">Единый раздел: пользователи, группы, предметы и привязки.</p>
 
 <div class="row g-3 mb-3">
@@ -36,8 +39,20 @@
       <div class="col-md-2"><input class="form-control" name="login" placeholder="Логин" required></div>
       <div class="col-md-2"><input class="form-control" name="password" placeholder="Пароль" type="password" required></div>
       <div class="col-md-2"><input class="form-control" name="email" placeholder="Email" type="email"></div>
-      <div class="col-md-2"><input class="form-control" name="personal_id" placeholder="Личный ID (опц.)"></div>
-      <div class="col-md-1"><select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')"><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
+      <div class="col-md-3"><input class="form-control" name="personal_id" placeholder="Личный ID (опц.)"></div>
+
+      <div class="col-md-2"><input class="form-control" name="birth_date" type="date" placeholder="Дата рождения"></div>
+      <div class="col-md-2"><input class="form-control" name="direction_code" placeholder="Код направления"></div>
+      <div class="col-md-3"><input class="form-control" name="direction_name" placeholder="Наименование направления"></div>
+      <div class="col-md-3"><input class="form-control" name="faculty" placeholder="Факультет"></div>
+      <div class="col-md-2">
+        <select class="form-select" name="study_status">
+          <option value="studying">Учится</option>
+          <option value="inactive">Неактивен</option>
+        </select>
+      </div>
+
+      <div class="col-md-2"><select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')"><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
       <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
       <div class="col-md-3"><select class="form-select" name="teacher_group_ids" id="addTeacherGroups" multiple></select></div>
       <div class="col-md-2 form-check align-self-center"><input class="form-check-input" type="checkbox" id="addIsMonitor" name="is_monitor"><label class="form-check-label" for="addIsMonitor">Староста</label></div>
@@ -61,7 +76,7 @@
   <div class="card-header"><h5 class="mb-0">Текущие пользователи</h5></div>
   <div class="card-body table-responsive">
     <table class="table table-striped" id="usersTable">
-      <thead><tr><th>DB ID</th><th>Личный ID</th><th>ФИО</th><th>Логин</th><th>Email</th><th>Роль</th><th>Группа</th><th>Группы преподавателя</th><th></th></tr></thead>
+      <thead><tr><th>DB ID</th><th>Личный ID</th><th>ФИО</th><th>Логин</th><th>Email</th><th>Дата рождения</th><th>Направление</th><th>Факультет</th><th>Статус</th><th>Роль</th><th>Группа</th><th>Группы преподавателя</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -77,22 +92,39 @@
         <div class="col-6"><input id="editLogin" class="form-control" placeholder="Логин"></div>
         <div class="col-6"><input id="editPersonalId" class="form-control" placeholder="Личный ID"></div>
         <div class="col-6"><input id="editEmail" class="form-control" placeholder="Email" type="email"></div>
+        <div class="col-6"><input id="editBirthDate" class="form-control" type="date"></div>
+        <div class="col-4"><input id="editDirectionCode" class="form-control" placeholder="Код направления"></div>
+        <div class="col-8"><input id="editDirectionName" class="form-control" placeholder="Наименование направления"></div>
+        <div class="col-6"><input id="editFaculty" class="form-control" placeholder="Факультет"></div>
+        <div class="col-6"><select id="editStudyStatus" class="form-select"><option value="studying">Учится</option><option value="inactive">Неактивен</option></select></div>
         <div class="col-6"><select id="editRole" class="form-select" onchange="toggleTeacherGroups('edit')"></select></div>
         <div class="col-6"><select id="editGroup" class="form-select"></select></div>
         <div class="col-6"><select id="editTeacherGroups" class="form-select" multiple></select></div>
         <div class="col-6 form-check"><input class="form-check-input" type="checkbox" id="editIsMonitor"><label class="form-check-label" for="editIsMonitor">Староста</label></div>
-        <div class="col-6"><input id="editPassword" class="form-control" type="password" placeholder="Новый пароль (опц.)"></div>
       </form>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveEdit()">Сохранить</button></div>
   </div></div>
 </div>
 
+<div class="modal fade" id="passwordModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Смена пароля</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="pwdUserId">
+      <div class="mb-2"><label class="form-label">Старый пароль</label><input id="pwdOld" type="password" class="form-control"></div>
+      <div><label class="form-label">Новый пароль</label><input id="pwdNew" type="password" class="form-control"></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="savePasswordChange()">Изменить пароль</button></div>
+  </div></div>
+</div>
+
 <script>
 const token = localStorage.getItem('access_token');
 let users=[], groups=[], subjects=[], mappings=[];
-let editModal;
+let editModal, passwordModal;
 const roleOptions=['student','monitor','teacher','dean','admin'];
+const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
 function groupNameById(id){return groups.find(g=>g.id===id)?.name||'-'}
@@ -115,7 +147,8 @@ function renderUsers(){
   const tbody=document.querySelector('#usersTable tbody'); tbody.innerHTML='';
   users.forEach(u=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.role}${u.is_monitor?' (староста)':''}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
+    const direction = [u.direction_code||'', u.direction_name||''].filter(Boolean).join(' — ') || '-';
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}${u.is_monitor?' (староста)':''}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-warning' onclick='openPasswordModal(${u.id})'>Сменить пароль</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -164,7 +197,22 @@ async function bindGroupSubject(){
 addUserForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const f=e.target;
-  const payload={full_name:f.full_name.value,login:f.login.value,password:f.password.value,role:f.role.value,email:f.email.value||null,personal_id:f.personal_id.value||null,group_id:f.group_id.value?parseInt(f.group_id.value):null,is_monitor:f.is_monitor.checked,teacher_group_ids:selectedValues(addTeacherGroups)};
+  const payload={
+    full_name:f.full_name.value,
+    login:f.login.value,
+    password:f.password.value,
+    role:f.role.value,
+    email:f.email.value||null,
+    personal_id:f.personal_id.value||null,
+    birth_date:f.birth_date.value||null,
+    direction_code:f.direction_code.value||null,
+    direction_name:f.direction_name.value||null,
+    faculty:f.faculty.value||null,
+    study_status:f.study_status.value,
+    group_id:f.group_id.value?parseInt(f.group_id.value):null,
+    is_monitor:f.is_monitor.checked,
+    teacher_group_ids:selectedValues(addTeacherGroups)
+  };
   const r=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
   if(!r.ok) return alert(d.detail||'Ошибка'); f.reset(); await loadAll();
 });
@@ -172,16 +220,50 @@ addUserForm.addEventListener('submit', async (e)=>{
 function openEdit(id){
   const u=users.find(x=>x.id===id); if(!u) return;
   editId.value=u.id; editFullName.value=u.full_name; editLogin.value=u.login; editPersonalId.value=u.personal_id||''; editEmail.value=u.email||''; editRole.value=u.role; editGroup.value=u.group_id||''; editIsMonitor.checked=!!u.is_monitor;
+  editBirthDate.value=u.birth_date||''; editDirectionCode.value=u.direction_code||''; editDirectionName.value=u.direction_name||''; editFaculty.value=u.faculty||''; editStudyStatus.value=u.study_status||'studying';
   Array.from(editTeacherGroups.options).forEach(o=>o.selected=(u.teacher_group_ids||[]).includes(parseInt(o.value)));
   toggleTeacherGroups('edit'); editModal.show();
 }
 
 async function saveEdit(){
   const id=parseInt(editId.value);
-  const payload={full_name:editFullName.value,login:editLogin.value,personal_id:editPersonalId.value||null,email:editEmail.value||null,role:editRole.value,group_id:editGroup.value?parseInt(editGroup.value):null,is_monitor:editIsMonitor.checked,teacher_group_ids:selectedValues(editTeacherGroups)};
-  if(editPassword.value) payload.password=editPassword.value;
+  const payload={
+    full_name:editFullName.value,
+    login:editLogin.value,
+    personal_id:editPersonalId.value||null,
+    email:editEmail.value||null,
+    birth_date:editBirthDate.value||null,
+    direction_code:editDirectionCode.value||null,
+    direction_name:editDirectionName.value||null,
+    faculty:editFaculty.value||null,
+    study_status:editStudyStatus.value,
+    role:editRole.value,
+    group_id:editGroup.value?parseInt(editGroup.value):null,
+    is_monitor:editIsMonitor.checked,
+    teacher_group_ids:selectedValues(editTeacherGroups)
+  };
   const r=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
   if(!r.ok) return alert(d.detail||'Ошибка'); editModal.hide(); await loadAll();
+}
+
+function openPasswordModal(id){
+  pwdUserId.value=id;
+  pwdOld.value='';
+  pwdNew.value='';
+  passwordModal.show();
+}
+
+async function savePasswordChange(){
+  const userId=parseInt(pwdUserId.value);
+  const oldPassword=pwdOld.value;
+  const newPassword=pwdNew.value;
+  if(!oldPassword || !newPassword) return alert('Заполните старый и новый пароль');
+  const payload={user_id:userId, old_password:oldPassword, new_password:newPassword};
+  const r=await fetch(`/users/${userId}/password`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)});
+  const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка');
+  passwordModal.hide();
+  alert('Пароль изменен');
 }
 
 async function removeUser(id){
@@ -190,6 +272,10 @@ async function removeUser(id){
   if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{ editModal=new bootstrap.Modal(editModalEl=document.getElementById('editModal')); loadAll(); });
+document.addEventListener('DOMContentLoaded', ()=>{
+  editModal=new bootstrap.Modal(document.getElementById('editModal'));
+  passwordModal=new bootstrap.Modal(document.getElementById('passwordModal'));
+  loadAll();
+});
 </script>
 {% endblock %}

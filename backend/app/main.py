@@ -16,6 +16,7 @@ import uuid
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "../../templates"))
 
 app = FastAPI(title="University Attendance System")
+VALID_STUDY_STATUSES = {"studying", "inactive"}
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="./static"), name="static")
@@ -92,6 +93,11 @@ def serialize_user(user: models.User) -> schemas.User:
         group_name=user.group.name if user.group else None,
         is_monitor=user.is_monitor,
         email=user.email,
+        birth_date=user.birth_date,
+        direction_code=user.direction_code,
+        direction_name=user.direction_name,
+        faculty=user.faculty,
+        study_status=user.study_status,
         teacher_group_ids=teacher_group_ids,
     )
 
@@ -166,6 +172,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
         pid_exists = db.query(models.User).filter(models.User.personal_id == user.personal_id).first()
         if pid_exists:
             raise HTTPException(status_code=400, detail="Personal ID already exists")
+    if user.study_status not in VALID_STUDY_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid study status")
 
     db_user = models.User(
         full_name=user.full_name,
@@ -175,6 +183,11 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
         group_id=user.group_id,
         is_monitor=user.is_monitor,
         email=user.email,
+        birth_date=user.birth_date,
+        direction_code=user.direction_code,
+        direction_name=user.direction_name,
+        faculty=user.faculty,
+        study_status=user.study_status,
         personal_id=(user.personal_id or f"U-{uuid.uuid4().hex[:10]}"),
     )
     db.add(db_user)
@@ -224,22 +237,27 @@ def api_login(
 
 @app.put("/users/{user_id}/password")
 def change_password(
+    user_id: int,
     user_update: schemas.PasswordChange,
     current_user: models.User = Depends(get_current_user_role),
     db: Session = Depends(database.get_db)
 ):
-    # Check if user is updating their own password or is admin
-    if current_user.id != user_update.user_id and current_user.role != "admin":
+    if user_update.user_id != user_id:
+        raise HTTPException(status_code=400, detail="User ID mismatch")
+
+    if current_user.id != user_id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Verify old password
+
     if not auth.verify_password(user_update.old_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect old password")
-    
-    # Update password
-    current_user.password_hash = auth.hash_password(user_update.new_password)
+
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    target_user.password_hash = auth.hash_password(user_update.new_password)
     db.commit()
-    
+
     return {"message": "Password updated successfully"}
 
 
@@ -330,6 +348,18 @@ def update_user(
         db_user.is_monitor = user_update.is_monitor
     if user_update.email is not None:
         db_user.email = user_update.email
+    if user_update.birth_date is not None:
+        db_user.birth_date = user_update.birth_date
+    if user_update.direction_code is not None:
+        db_user.direction_code = user_update.direction_code
+    if user_update.direction_name is not None:
+        db_user.direction_name = user_update.direction_name
+    if user_update.faculty is not None:
+        db_user.faculty = user_update.faculty
+    if user_update.study_status is not None:
+        if user_update.study_status not in VALID_STUDY_STATUSES:
+            raise HTTPException(status_code=400, detail="Invalid study status")
+        db_user.study_status = user_update.study_status
     if user_update.personal_id is not None:
         pid_exists = db.query(models.User).filter(models.User.personal_id == user_update.personal_id, models.User.id != user_id).first()
         if pid_exists:
@@ -880,7 +910,7 @@ def update_my_profile(
     current_user: models.User = Depends(get_current_user_role),
     db: Session = Depends(database.get_db)
 ):
-    current_user.email = profile_update.email
+    current_user.birth_date = profile_update.birth_date
     db.commit()
     db.refresh(current_user)
     return serialize_user(current_user)

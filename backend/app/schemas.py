@@ -20,6 +20,11 @@ class UserBase(BaseModel):
     group_id: Optional[int] = None
     is_monitor: bool = False
     email: Optional[str] = None
+    birth_date: Optional[date] = None
+    direction_code: Optional[str] = None
+    direction_name: Optional[str] = None
+    faculty: Optional[str] = None
+    study_status: str = "studying"
 
 
 class UserCreate(UserBase):
@@ -37,11 +42,16 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     email: Optional[str] = None
     personal_id: Optional[str] = None
+    birth_date: Optional[date] = None
+    direction_code: Optional[str] = None
+    direction_name: Optional[str] = None
+    faculty: Optional[str] = None
+    study_status: Optional[str] = None
     teacher_group_ids: Optional[List[int]] = None
 
 
 class UserProfileUpdate(BaseModel):
-    email: Optional[str] = None
+    birth_date: Optional[date] = None
 
 
 class User(BaseModel):
@@ -54,6 +64,11 @@ class User(BaseModel):
     group_name: Optional[str] = None
     is_monitor: bool = False
     email: Optional[str] = None
+    birth_date: Optional[date] = None
+    direction_code: Optional[str] = None
+    direction_name: Optional[str] = None
+    faculty: Optional[str] = None
+    study_status: str = "studying"
     teacher_group_ids: List[int] = []
 
     class Config:

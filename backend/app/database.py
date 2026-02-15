@@ -37,11 +37,21 @@ def ensure_compatible_schema() -> None:
         subject_teacher_ddl = "ALTER TABLE subjects ADD COLUMN teacher_id INTEGER"
         email_ddl = "ALTER TABLE users ADD COLUMN email VARCHAR(255)"
         personal_id_ddl = "ALTER TABLE users ADD COLUMN personal_id VARCHAR(64)"
+        birth_date_ddl = "ALTER TABLE users ADD COLUMN birth_date DATE"
+        direction_code_ddl = "ALTER TABLE users ADD COLUMN direction_code VARCHAR(32)"
+        direction_name_ddl = "ALTER TABLE users ADD COLUMN direction_name VARCHAR(255)"
+        faculty_ddl = "ALTER TABLE users ADD COLUMN faculty VARCHAR(255)"
+        study_status_ddl = "ALTER TABLE users ADD COLUMN study_status VARCHAR(20) NOT NULL DEFAULT 'studying'"
 
         _add_column_if_missing(inspector, "users", "is_monitor", user_monitor_ddl)
         _add_column_if_missing(inspector, "subjects", "teacher_id", subject_teacher_ddl)
         _add_column_if_missing(inspector, "users", "email", email_ddl)
-        added_pid = _add_column_if_missing(inspector, "users", "personal_id", personal_id_ddl)
+        _add_column_if_missing(inspector, "users", "personal_id", personal_id_ddl)
+        _add_column_if_missing(inspector, "users", "birth_date", birth_date_ddl)
+        _add_column_if_missing(inspector, "users", "direction_code", direction_code_ddl)
+        _add_column_if_missing(inspector, "users", "direction_name", direction_name_ddl)
+        _add_column_if_missing(inspector, "users", "faculty", faculty_ddl)
+        _add_column_if_missing(inspector, "users", "study_status", study_status_ddl)
 
         if "group_subjects" not in inspector.get_table_names() and "groups" in inspector.get_table_names() and "subjects" in inspector.get_table_names():
             with engine.begin() as connection:

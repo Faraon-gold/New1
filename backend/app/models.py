@@ -51,6 +51,11 @@ class User(Base):
     is_monitor = Column(Boolean, nullable=False, default=False, server_default="false")
     personal_id = Column(String(64), index=True, nullable=False, default=lambda: str(uuid.uuid4()))
     email = Column(String(255), nullable=True)
+    birth_date = Column(Date, nullable=True)
+    direction_code = Column(String(32), nullable=True)
+    direction_name = Column(String(255), nullable=True)
+    faculty = Column(String(255), nullable=True)
+    study_status = Column(String(20), nullable=False, default="studying", server_default="studying")
 
     group = relationship("Group", back_populates="students")
     attendances = relationship("Attendance", back_populates="student")
