@@ -624,8 +624,29 @@ def app_home(request: Request):
 
 
 @app.get("/schedule-page", response_class=HTMLResponse)
-def schedule_page(request: Request):
-    return templates.TemplateResponse("schedule_page.html", {"request": request})
+def schedule_page(request: Request, db: Session = Depends(database.get_db)):
+    synced = 0
+    if google_sheets_sync:
+        try:
+            synced = google_sheets_sync.sync_schedule_with_db(db)
+        except Exception as e:
+            print(f"Error syncing schedule for page: {e}")
+
+    schedules = (
+        db.query(models.Schedule)
+        .order_by(models.Schedule.date.asc(), models.Schedule.start_time.asc())
+        .limit(200)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "schedule_page.html",
+        {
+            "request": request,
+            "schedules": schedules,
+            "synced": synced,
+        },
+    )
 
 
 @app.get("/attendance/mark", response_class=HTMLResponse)
