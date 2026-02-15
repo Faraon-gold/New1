@@ -3,10 +3,11 @@
 {% block title %}Управление пользователями - {{ super() }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-3">Управление пользователями</h2>
+<h2 class="mb-1">Управление пользователями</h2>
+<p class="text-muted mb-3">Создание, редактирование и привязка пользователей к группам.</p>
 
 <div class="card mb-4">
-    <div class="card-header"><h5 class="mb-0">Создать группу (только числовой формат)</h5></div>
+    <div class="card-header"><h5 class="mb-0">Создать группу</h5></div>
     <div class="card-body d-flex gap-2">
         <input id="newGroupName" class="form-control" placeholder="Например: 201">
         <button class="btn btn-outline-primary" onclick="createGroup()">Создать группу</button>
@@ -47,6 +48,7 @@
 
 <div class="card">
     <div class="card-header"><h5 class="mb-0">Текущие пользователи</h5></div>
+    <div class="card-body pb-0"><small class="text-muted">Личный ID и email можно редактировать через кнопку «Изменить».</small></div>
     <div class="card-body table-responsive">
         <table class="table table-striped" id="usersTable">
             <thead>
