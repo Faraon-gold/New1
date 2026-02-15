@@ -1,64 +1,70 @@
 {% extends "base.html" %}
 
-{% block title %}Управление пользователями - {{ super() }}{% endblock %}
+{% block title %}Управление пользователями и группами - {{ super() }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-1">Управление пользователями</h2>
-<p class="text-muted mb-3">Создание, редактирование и привязка пользователей к группам.</p>
+<h2 class="mb-1">Управление пользователями и группами</h2>
+<p class="text-muted mb-3">Единый раздел: пользователи, группы, предметы и привязки.</p>
 
-<div class="card mb-4">
-    <div class="card-header"><h5 class="mb-0">Создать группу</h5></div>
-    <div class="card-body d-flex gap-2">
-        <input id="newGroupName" class="form-control" placeholder="Например: 201">
-        <button class="btn btn-outline-primary" onclick="createGroup()">Создать группу</button>
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><h6 class="mb-0">Создать группу</h6></div>
+      <div class="card-body d-flex gap-2">
+        <input id="newGroupName" class="form-control" placeholder="Например: ИС-201_2026">
+        <button class="btn btn-outline-primary" onclick="createGroup()">Создать</button>
+      </div>
     </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header"><h6 class="mb-0">Создать предмет</h6></div>
+      <div class="card-body row g-2">
+        <div class="col-md-6"><input id="newSubjectName" class="form-control" placeholder="Название предмета"></div>
+        <div class="col-md-4"><select id="newSubjectTeacher" class="form-select"></select></div>
+        <div class="col-md-2"><button class="btn btn-success w-100" onclick="createSubject()">Создать</button></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card mb-4">
-    <div class="card-header"><h5 class="mb-0">Добавить пользователя</h5></div>
-    <div class="card-body">
-        <form id="addUserForm" class="row g-3">
-            <div class="col-md-4"><input class="form-control" name="full_name" placeholder="ФИО" required></div>
-            <div class="col-md-2"><input class="form-control" name="login" placeholder="Логин" required></div>
-            <div class="col-md-2"><input class="form-control" name="password" placeholder="Пароль" type="password" required></div>
-            <div class="col-md-2"><input class="form-control" name="email" placeholder="Email" type="email"></div>
-            <div class="col-md-2">
-                <select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')">
-                    <option value="student">Студент</option>
-                    <option value="monitor">Староста</option>
-                    <option value="teacher">Преподаватель</option>
-                    <option value="dean">Деканат</option>
-                    <option value="admin">Админ</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" name="group_id" id="addGroup"></select>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" name="teacher_group_ids" id="addTeacherGroups" multiple></select>
-            </div>
-            <div class="col-md-2 form-check align-self-center">
-                <input class="form-check-input" type="checkbox" id="addIsMonitor" name="is_monitor">
-                <label class="form-check-label" for="addIsMonitor">Староста</label>
-            </div>
-            <div class="col-md-2"><button class="btn btn-primary" type="submit">Добавить</button></div>
-        </form>
-    </div>
+  <div class="card-header"><h5 class="mb-0">Добавить пользователя</h5></div>
+  <div class="card-body">
+    <form id="addUserForm" class="row g-3">
+      <div class="col-md-3"><input class="form-control" name="full_name" placeholder="ФИО" required></div>
+      <div class="col-md-2"><input class="form-control" name="login" placeholder="Логин" required></div>
+      <div class="col-md-2"><input class="form-control" name="password" placeholder="Пароль" type="password" required></div>
+      <div class="col-md-2"><input class="form-control" name="email" placeholder="Email" type="email"></div>
+      <div class="col-md-2"><input class="form-control" name="personal_id" placeholder="Личный ID (опц.)"></div>
+      <div class="col-md-1"><select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')"><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
+      <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
+      <div class="col-md-3"><select class="form-select" name="teacher_group_ids" id="addTeacherGroups" multiple></select></div>
+      <div class="col-md-2 form-check align-self-center"><input class="form-check-input" type="checkbox" id="addIsMonitor" name="is_monitor"><label class="form-check-label" for="addIsMonitor">Староста</label></div>
+      <div class="col-md-2"><button class="btn btn-primary" type="submit">Добавить</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h5 class="mb-0">Привязка предмета к группе и преподавателю</h5></div>
+  <div class="card-body row g-2">
+    <div class="col-md-4"><select id="mapGroup" class="form-select"></select></div>
+    <div class="col-md-4"><select id="mapSubject" class="form-select"></select></div>
+    <div class="col-md-3"><select id="mapTeacher" class="form-select"></select></div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" onclick="bindGroupSubject()">OK</button></div>
+  </div>
+  <div class="card-body pt-0"><div id="mappingList" class="small text-muted"></div></div>
 </div>
 
 <div class="card">
-    <div class="card-header"><h5 class="mb-0">Текущие пользователи</h5></div>
-    <div class="card-body pb-0"><small class="text-muted">Личный ID и email можно редактировать через кнопку «Изменить».</small></div>
-    <div class="card-body table-responsive">
-        <table class="table table-striped" id="usersTable">
-            <thead>
-                <tr>
-                    <th>DB ID</th><th>Личный ID</th><th>ФИО</th><th>Логин</th><th>Email</th><th>Роль</th><th>Группа</th><th>Группы преподавателя</th><th></th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
+  <div class="card-header"><h5 class="mb-0">Текущие пользователи</h5></div>
+  <div class="card-body table-responsive">
+    <table class="table table-striped" id="usersTable">
+      <thead><tr><th>DB ID</th><th>Личный ID</th><th>ФИО</th><th>Логин</th><th>Email</th><th>Роль</th><th>Группа</th><th>Группы преподавателя</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 </div>
 
 <div class="modal fade" id="editModal" tabindex="-1">
@@ -73,7 +79,7 @@
         <div class="col-6"><input id="editEmail" class="form-control" placeholder="Email" type="email"></div>
         <div class="col-6"><select id="editRole" class="form-select" onchange="toggleTeacherGroups('edit')"></select></div>
         <div class="col-6"><select id="editGroup" class="form-select"></select></div>
-        <div class="col-12"><select id="editTeacherGroups" class="form-select" multiple></select></div>
+        <div class="col-6"><select id="editTeacherGroups" class="form-select" multiple></select></div>
         <div class="col-6 form-check"><input class="form-check-input" type="checkbox" id="editIsMonitor"><label class="form-check-label" for="editIsMonitor">Староста</label></div>
         <div class="col-6"><input id="editPassword" class="form-control" type="password" placeholder="Новый пароль (опц.)"></div>
       </form>
@@ -84,148 +90,106 @@
 
 <script>
 const token = localStorage.getItem('access_token');
-let users = [];
-let groups = [];
+let users=[], groups=[], subjects=[], mappings=[];
 let editModal;
+const roleOptions=['student','monitor','teacher','dean','admin'];
+const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
-const roleOptions = ['student','monitor','teacher','dean','admin'];
+function groupNameById(id){return groups.find(g=>g.id===id)?.name||'-'}
+function selectedValues(el){return Array.from(el.selectedOptions).map(o=>parseInt(o.value));}
 
-function authHeaders() { return {'Content-Type':'application/json','Authorization':`Bearer ${token}`}; }
-
-async function loadData(){
-  if(!token){ window.location.href='/login'; return; }
-  const [gRes,uRes]=await Promise.all([
-    fetch('/groups',{headers:authHeaders()}),
-    fetch('/users?limit=1000',{headers:authHeaders()})
-  ]);
-  if(!gRes.ok || !uRes.ok){ alert('Ошибка загрузки данных'); return; }
-  groups=await gRes.json();
-  users=await uRes.json();
-  renderGroupSelects();
-  renderUsers();
+function renderSelects(){
+  const groupOpts='<option value="">Без группы</option>'+groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  addGroup.innerHTML=groupOpts; editGroup.innerHTML=groupOpts;
+  const teacherGroupOpts=groups.filter(g=>g.name!=='0').map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  addTeacherGroups.innerHTML=teacherGroupOpts; editTeacherGroups.innerHTML=teacherGroupOpts;
+  editRole.innerHTML=roleOptions.map(r=>`<option value="${r}">${r}</option>`).join('');
+  mapGroup.innerHTML=groups.filter(g=>g.name!=='0').map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  mapSubject.innerHTML=subjects.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const teacherOpts='<option value="">Без преподавателя</option>'+users.filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${t.full_name}</option>`).join('');
+  mapTeacher.innerHTML=teacherOpts; newSubjectTeacher.innerHTML=teacherOpts;
+  toggleTeacherGroups('add'); toggleTeacherGroups('edit');
 }
-
-function renderGroupSelects(){
-  const opts = '<option value="">Без группы</option>' + groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
-  document.getElementById('addGroup').innerHTML = opts;
-  document.getElementById('editGroup').innerHTML = opts;
-
-  const topts = groups.filter(g=>g.name!=='0').map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
-  document.getElementById('addTeacherGroups').innerHTML = topts;
-  document.getElementById('editTeacherGroups').innerHTML = topts;
-
-  document.getElementById('editRole').innerHTML = roleOptions.map(r=>`<option value="${r}">${r}</option>`).join('');
-  toggleTeacherGroups('add');
-  toggleTeacherGroups('edit');
-}
-
-function groupNameById(id){ return groups.find(g=>g.id===id)?.name || '-'; }
 
 function renderUsers(){
-  const tbody=document.querySelector('#usersTable tbody');
-  tbody.innerHTML='';
+  const tbody=document.querySelector('#usersTable tbody'); tbody.innerHTML='';
   users.forEach(u=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${u.id}</td>
-      <td>${u.personal_id || '-'}</td>
-      <td>${u.full_name}</td>
-      <td>${u.login}</td>
-      <td>${u.email || '-'}</td>
-      <td>${u.role}${u.is_monitor ? ' (староста)' : ''}</td>
-      <td>${u.group_name || groupNameById(u.group_id)}</td>
-      <td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ') || '-'}</td>
-      <td><button class="btn btn-sm btn-primary" onclick="openEdit(${u.id})">Изменить</button>
-      <button class="btn btn-sm btn-danger" onclick="removeUser(${u.id})">Удалить</button></td>`;
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.role}${u.is_monitor?' (староста)':''}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
     tbody.appendChild(tr);
-  })
+  });
+}
+
+function renderMappings(){
+  mappingList.innerHTML = mappings.length ? mappings.map(x=>`${x.group_name} — ${x.subject_name} — ${x.teacher_name||'-'}`).join('<br>') : 'Пока нет привязок';
+}
+
+async function loadAll(){
+  if(!token){location.href='/login';return;}
+  const [u,g,s,m]=await Promise.all([
+    fetch('/users?limit=1000',{headers:authHeaders()}),
+    fetch('/groups',{headers:authHeaders()}),
+    fetch('/subjects',{headers:authHeaders()}),
+    fetch('/group-subjects',{headers:authHeaders()})
+  ]);
+  if([u,g,s,m].some(r=>!r.ok)){ alert('Ошибка загрузки данных'); return; }
+  users=await u.json(); groups=await g.json(); subjects=await s.json(); mappings=await m.json();
+  renderSelects(); renderUsers(); renderMappings();
 }
 
 function toggleTeacherGroups(prefix){
-  const role = document.getElementById(prefix==='add'?'addRole':'editRole').value;
-  const tg = document.getElementById(prefix==='add'?'addTeacherGroups':'editTeacherGroups');
-  tg.disabled = role !== 'teacher';
+  const role=document.getElementById(prefix==='add'?'addRole':'editRole').value;
+  document.getElementById(prefix==='add'?'addTeacherGroups':'editTeacherGroups').disabled=role!=='teacher';
 }
-
-function selectedValues(el){ return Array.from(el.selectedOptions).map(o=>parseInt(o.value)); }
 
 async function createGroup(){
-  const name = document.getElementById('newGroupName').value.trim();
-  const res = await fetch('/groups',{method:'POST',headers:authHeaders(),body:JSON.stringify({name})});
-  const data = await res.json();
-  if(!res.ok){ alert(data.detail||'Ошибка'); return; }
-  document.getElementById('newGroupName').value='';
-  await loadData();
+  const name=newGroupName.value.trim(); if(!name) return alert('Введите название группы');
+  const r=await fetch('/groups',{method:'POST',headers:authHeaders(),body:JSON.stringify({name})}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); newGroupName.value=''; await loadAll();
 }
 
-document.getElementById('addUserForm').addEventListener('submit', async (e)=>{
+async function createSubject(){
+  const name=newSubjectName.value.trim(); if(!name) return alert('Введите название предмета');
+  const t=newSubjectTeacher.value; const payload={name, teacher_id:t?parseInt(t):null};
+  const r=await fetch('/subjects',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); newSubjectName.value=''; await loadAll();
+}
+
+async function bindGroupSubject(){
+  const payload={group_id:parseInt(mapGroup.value),subject_id:parseInt(mapSubject.value),teacher_id:mapTeacher.value?parseInt(mapTeacher.value):null};
+  const r=await fetch('/group-subjects',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
+}
+
+addUserForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const form=e.target;
-  const payload={
-    full_name: form.full_name.value,
-    login: form.login.value,
-    password: form.password.value,
-    role: form.role.value,
-    email: form.email.value || null,
-    group_id: form.group_id.value ? parseInt(form.group_id.value) : null,
-    is_monitor: form.is_monitor.checked,
-    teacher_group_ids: selectedValues(document.getElementById('addTeacherGroups'))
-  };
-  const res=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)});
-  const data=await res.json();
-  if(!res.ok){ alert(data.detail||'Ошибка'); return; }
-  form.reset();
-  await loadData();
+  const f=e.target;
+  const payload={full_name:f.full_name.value,login:f.login.value,password:f.password.value,role:f.role.value,email:f.email.value||null,personal_id:f.personal_id.value||null,group_id:f.group_id.value?parseInt(f.group_id.value):null,is_monitor:f.is_monitor.checked,teacher_group_ids:selectedValues(addTeacherGroups)};
+  const r=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); f.reset(); await loadAll();
 });
 
-function openEdit(userId){
-  const u=users.find(x=>x.id===userId); if(!u) return;
-  document.getElementById('editId').value=u.id;
-  document.getElementById('editFullName').value=u.full_name;
-  document.getElementById('editLogin').value=u.login;
-  document.getElementById('editEmail').value=u.email || '';
-  document.getElementById('editPersonalId').value=u.personal_id || '';
-  document.getElementById('editRole').value=u.role;
-  document.getElementById('editGroup').value=u.group_id || '';
-  document.getElementById('editIsMonitor').checked=!!u.is_monitor;
-  const tg=document.getElementById('editTeacherGroups');
-  Array.from(tg.options).forEach(o=>o.selected=(u.teacher_group_ids||[]).includes(parseInt(o.value)));
-  toggleTeacherGroups('edit');
-  editModal.show();
+function openEdit(id){
+  const u=users.find(x=>x.id===id); if(!u) return;
+  editId.value=u.id; editFullName.value=u.full_name; editLogin.value=u.login; editPersonalId.value=u.personal_id||''; editEmail.value=u.email||''; editRole.value=u.role; editGroup.value=u.group_id||''; editIsMonitor.checked=!!u.is_monitor;
+  Array.from(editTeacherGroups.options).forEach(o=>o.selected=(u.teacher_group_ids||[]).includes(parseInt(o.value)));
+  toggleTeacherGroups('edit'); editModal.show();
 }
 
 async function saveEdit(){
-  const id=parseInt(document.getElementById('editId').value);
-  const payload={
-    full_name: document.getElementById('editFullName').value,
-    login: document.getElementById('editLogin').value,
-    email: document.getElementById('editEmail').value || null,
-    personal_id: document.getElementById('editPersonalId').value || null,
-    role: document.getElementById('editRole').value,
-    group_id: document.getElementById('editGroup').value ? parseInt(document.getElementById('editGroup').value) : null,
-    is_monitor: document.getElementById('editIsMonitor').checked,
-    teacher_group_ids: selectedValues(document.getElementById('editTeacherGroups'))
-  };
-  const pass=document.getElementById('editPassword').value;
-  if(pass) payload.password=pass;
-  const res=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)});
-  const data=await res.json();
-  if(!res.ok){ alert(data.detail||'Ошибка'); return; }
-  editModal.hide();
-  await loadData();
+  const id=parseInt(editId.value);
+  const payload={full_name:editFullName.value,login:editLogin.value,personal_id:editPersonalId.value||null,email:editEmail.value||null,role:editRole.value,group_id:editGroup.value?parseInt(editGroup.value):null,is_monitor:editIsMonitor.checked,teacher_group_ids:selectedValues(editTeacherGroups)};
+  if(editPassword.value) payload.password=editPassword.value;
+  const r=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); editModal.hide(); await loadAll();
 }
 
 async function removeUser(id){
   if(!confirm('Удалить пользователя?')) return;
-  const res=await fetch(`/users/${id}`,{method:'DELETE',headers:authHeaders()});
-  const data=await res.json();
-  if(!res.ok){ alert(data.detail||'Ошибка'); return; }
-  await loadData();
+  const r=await fetch(`/users/${id}`,{method:'DELETE',headers:authHeaders()}); const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  editModal = new bootstrap.Modal(document.getElementById('editModal'));
-  loadData();
-});
+document.addEventListener('DOMContentLoaded', ()=>{ editModal=new bootstrap.Modal(editModalEl=document.getElementById('editModal')); loadAll(); });
 </script>
 {% endblock %}

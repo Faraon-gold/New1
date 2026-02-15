@@ -672,12 +672,14 @@ def get_student_schedule(student_id: int, current_user: models.User = Depends(ge
 
 
 
+def is_monitor_actor(current_user: models.User) -> bool:
+    return current_user.role == "monitor" or (current_user.role == "student" and bool(current_user.is_monitor))
+
+
 def can_manage_subject_attendance(current_user: models.User, group_id: int) -> bool:
     if current_user.role in {"admin", "dean", "teacher"}:
         return True
-    if current_user.role == "monitor":
-        return current_user.group_id == group_id
-    if current_user.role == "student" and bool(current_user.is_monitor):
+    if is_monitor_actor(current_user):
         return current_user.group_id == group_id
     return False
 
@@ -754,6 +756,9 @@ def add_subject_session(
     if not can_manage_subject_attendance(current_user, group_id):
         raise HTTPException(status_code=403, detail="Access denied")
 
+    if is_monitor_actor(current_user) and session_date < date.today():
+        raise HTTPException(status_code=403, detail="Monitor cannot add past sessions")
+
     exists = (
         db.query(models.Schedule)
         .filter(
@@ -810,6 +815,9 @@ def mark_subject_attendance(
     schedule = db.query(models.Schedule).filter(models.Schedule.id == schedule_id).first()
     if not schedule or schedule.subject_id != subject_id or schedule.group_id != group_id:
         raise HTTPException(status_code=404, detail="Schedule not found")
+
+    if is_monitor_actor(current_user) and schedule.date < date.today():
+        raise HTTPException(status_code=403, detail="Monitor cannot edit past attendance")
 
     student = db.query(models.User).filter(models.User.id == user_id).first()
     if not student or student.group_id != group_id:
@@ -927,7 +935,7 @@ def attendance_subject_page(subject_id: int, request: Request, group_id: int = Q
 
 @app.get("/admin/groups/manage", response_class=HTMLResponse)
 def admin_groups_manage_page(request: Request):
-    return templates.TemplateResponse("group_management.html", {"request": request})
+    return templates.TemplateResponse("admin_users.html", {"request": request})
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
