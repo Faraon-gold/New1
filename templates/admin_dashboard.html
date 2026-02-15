@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет администратора - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2>Личный кабинет администратора</h2>
+<p>Добро пожаловать, {{ current_user.full_name }}!</p>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-3">
+            <a class="btn btn-primary" href="/admin/users">Управление пользователями</a>
+            <button class="btn btn-secondary" onclick="syncSchedule()">Обновить расписание</button>
+        </div>
+        <div id="sync-message"></div>
+    </div>
+</div>
+
+<script>
+function syncSchedule() {
+    fetch('/admin/sync-schedule', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const msgDiv = document.getElementById('sync-message');
+        if (data.success) {
+            msgDiv.innerHTML = '<div class="alert alert-success">Расписание успешно обновлено!</div>';
+        } else {
+            msgDiv.innerHTML = '<div class="alert alert-danger">Ошибка обновления расписания: ' + data.message + '</div>';
+        }
+        setTimeout(() => {
+            msgDiv.innerHTML = '';
+        }, 5000);
+    })
+    .catch(error => {
+        const msgDiv = document.getElementById('sync-message');
+        msgDiv.innerHTML = '<div class="alert alert-danger">Ошибка: ' + error.message + '</div>';
+    });
+}
+</script>
+{% endblock %}

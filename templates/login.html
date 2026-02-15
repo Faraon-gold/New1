@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Вход в систему - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Вход в систему учёта посещаемости</h3>
+            </div>
+            <div class="card-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="login" class="form-label">Логин:</label>
+                        <input type="text" class="form-control" id="login" name="login" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль:</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Войти</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    
+    // Submit using JSON format to the backend app's api/login endpoint
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            login: formData.get('login'),
+            password: formData.get('password')
+        })
+    });
+    
+    if (response.ok) {
+        const data = await response.json();
+        // Store the token in localStorage
+        localStorage.setItem('access_token', data.access_token);
+        
+        // Set the token in a cookie that can be read by the backend
+        document.cookie = `access_token=${data.access_token}; path=/; SameSite=Strict`;
+        
+        // Redirect to the app page which will check the token and redirect appropriately
+        window.location.href = '/app';
+    } else {
+        // Show error message - handle both 401 and 422 errors
+        let errorMessage = 'Неверный логин или пароль';
+        try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+                errorMessage = errorData.detail;
+            }
+        } catch (e) {
+            // If parsing JSON fails, keep the default error message
+        }
+        alert(errorMessage);
+    }
+});
+</script>
+{% endblock %}

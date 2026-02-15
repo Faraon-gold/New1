@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Управление пользователями - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2>Управление пользователями</h2>
+
+<!-- Форма добавления нового пользователя -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Добавить нового пользователя</h5>
+    </div>
+    <div class="card-body">
+        <form id="addUserForm">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label">ФИО</label>
+                        <input type="text" class="form-control" id="fullName" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="login" class="form-label">Логин</label>
+                        <input type="text" class="form-control" id="login" name="login" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Роль</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="student">Студент</option>
+                            <option value="monitor">Староста</option>
+                            <option value="teacher">Преподаватель</option>
+                            <option value="dean">Деканат</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="groupId" class="form-label">Группа (для студентов и старост)</label>
+                        <select class="form-select" id="groupId" name="group_id">
+                            <option value="">Не указана</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить пользователя</button>
+        </form>
+    </div>
+</div>
+
+<!-- Таблица пользователей -->
+<div class="card">
+    <div class="card-header">
+        <h5>Список пользователей</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>ФИО</th>
+                        <th>Логин</th>
+                        <th>Роль</th>
+                        <th>Группа</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    {% for user in users %}
+                    <tr id="user-row-{{ user.id }}">
+                        <td>{{ user.id }}</td>
+                        <td><span id="display-full-name-{{ user.id }}">{{ user.full_name }}</span></td>
+                        <td><span id="display-login-{{ user.id }}">{{ user.login }}</span></td>
+                        <td><span id="display-role-{{ user.id }}">{{ user.role.value }}</span></td>
+                        <td>
+                            <span id="display-group-{{ user.id }}">
+                                {% if user.group %}{{ user.group.name }}{% else %}-{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editUser({{ user.id }})">Редактировать</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})">Удалить</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для редактирования пользователя -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel">Редактировать пользователя</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label for="editFullName" class="form-label">ФИО</label>
+                        <input type="text" class="form-control" id="editFullName" name="full_name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLogin" class="form-label">Логин</label>
+                        <input type="text" class="form-control" id="editLogin" name="login">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">Новый пароль (оставьте пустым, чтобы не менять)</label>
+                        <input type="password" class="form-control" id="editPassword" name="password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">Роль</label>
+                        <select class="form-select" id="editRole" name="role">
+                            <option value="student">Студент</option>
+                            <option value="monitor">Староста</option>
+                            <option value="teacher">Преподаватель</option>
+                            <option value="dean">Деканат</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editGroupId" class="form-label">Группа</label>
+                        <select class="form-select" id="editGroupId" name="group_id">
+                            <option value="">Не указана</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveUserChanges()">Сохранить изменения</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Обработка формы добавления пользователя
+document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const userData = Object.fromEntries(formData.entries());
+    
+    // Преобразуем group_id в число или null
+    userData.group_id = userData.group_id ? parseInt(userData.group_id) : null;
+    
+    try {
+        const response = await fetch('/admin/users/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Ошибка при создании пользователя');
+        }
+        
+        alert(result.message);
+        location.reload(); // Обновляем страницу для отображения нового пользователя
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
+    }
+});
+
+// Функция для редактирования пользователя
+function editUser(userId) {
+    // Получаем данные пользователя
+    fetch(`/admin/users/${userId}`)
+        .then(response => response.json())
+        .then(user => {
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editFullName').value = user.full_name;
+            document.getElementById('editLogin').value = user.login;
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editGroupId').value = user.group_id || '';
+            
+            // Открываем модальное окно
+            const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            modal.show();
+        })
+        .catch(error => {
+            alert('Ошибка при загрузке данных пользователя: ' + error.message);
+        });
+}
+
+// Функция для сохранения изменений пользователя
+function saveUserChanges() {
+    const form = document.getElementById('editUserForm');
+    const formData = new FormData(form);
+    const userData = Object.fromEntries(formData.entries());
+    
+    // Преобразуем group_id в число или null
+    userData.group_id = userData.group_id ? parseInt(userData.group_id) : null;
+    
+    // Если пароль не указан, удаляем его из данных
+    if (!userData.password) {
+        delete userData.password;
+    }
+    
+    const userId = document.getElementById('editUserId').value;
+    
+    fetch(`/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!response.ok) {
+            throw new Error(data.detail || 'Ошибка при обновлении пользователя');
+        }
+        
+        alert(data.message);
+        
+        // Закрываем модальное окно
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+        modal.hide();
+        
+        // Обновляем отображение данных в таблице
+        document.getElementById(`display-full-name-${userId}`).textContent = userData.full_name || document.getElementById(`display-full-name-${userId}`).textContent;
+        document.getElementById(`display-login-${userId}`).textContent = userData.login || document.getElementById(`display-login-${userId}`).textContent;
+        document.getElementById(`display-role-${userId}`).textContent = userData.role || document.getElementById(`display-role-${userId}`).textContent;
+        
+        const groupId = userData.group_id ? parseInt(userData.group_id) : null;
+        if (groupId) {
+            const groupName = Array.from(document.getElementById('editGroupId').options).find(option => parseInt(option.value) === groupId)?.text;
+            document.getElementById(`display-group-${userId}`).textContent = groupName || document.getElementById(`display-group-${userId}`).textContent;
+        } else {
+            document.getElementById(`display-group-${userId}`).textContent = '-';
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error.message);
+    });
+}
+
+// Функция для удаления пользователя
+function deleteUser(userId) {
+    if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
+        fetch(`/admin/users/${userId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!response.ok) {
+                throw new Error(data.detail || 'Ошибка при удалении пользователя');
+            }
+            
+            alert(data.message);
+            // Удаляем строку из таблицы
+            document.getElementById(`user-row-${userId}`).remove();
+        })
+        .catch(error => {
+            alert('Ошибка: ' + error.message);
+        });
+    }
+}
+</script>
+{% endblock %}

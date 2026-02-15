@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет преподавателя - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2>Личный кабинет преподавателя</h2>
+<p>Добро пожаловать, {{ current_user.full_name }}!</p>
+
+<div class="row">
+    <div class="col-md-12">
+        <h4>Ваши занятия</h4>
+        {% for schedule_item in schedule %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>{{ schedule_item.subject.name }}</strong> - {{ schedule_item.group.name }} - {{ schedule_item.date }} - {{ schedule_item.start_time.strftime('%H:%M') }} - {{ schedule_item.end_time.strftime('%H:%M') }}
+            </div>
+            <div class="card-body">
+                <h5>Отметьте посещаемость студентов:</h5>
+                <div class="row">
+                    {% for student in schedule_item.group.students %}
+                    <div class="col-md-4 mb-2">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>{{ student.full_name }}</h6>
+                                <select class="form-select attendance-select" 
+                                        data-user-id="{{ student.id }}" 
+                                        data-schedule-id="{{ schedule_item.id }}">
+                                    <option value="">Выберите статус</option>
+                                    <option value="present">Присутствовал</option>
+                                    <option value="absent">Отсутствовал</option>
+                                    <option value="late">Опоздал</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// Загрузка текущих статусов посещаемости
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.attendance-select').forEach(select => {
+        const userId = select.dataset.userId;
+        const scheduleId = select.dataset.scheduleId;
+        
+        fetch(`/attendance/${userId}/${scheduleId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status) {
+                    select.value = data.status;
+                }
+            })
+            .catch(error => console.error('Ошибка при загрузке статуса:', error));
+        
+        // Обработка изменения статуса
+        select.addEventListener('change', function() {
+            const newStatus = this.value;
+            if (!newStatus) return;
+            
+            fetch(`/attendance/${userId}/${scheduleId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: newStatus })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.detail || 'Ошибка обновления статуса'); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Статус посещаемости успешно обновлён');
+            })
+            .catch(error => {
+                alert('Ошибка: ' + error.message);
+                // Восстановление предыдущего значения
+                fetch(`/attendance/${userId}/${scheduleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status) {
+                            select.value = data.status;
+                        } else {
+                            select.value = '';
+                        }
+                    });
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

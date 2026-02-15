@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет - Система учёта посещаемости</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .info-item {
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #555;
+            display: inline-block;
+            width: 100px;
+        }
+
+        .change-password {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+            border: 1px solid #eee;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+        }
+
+        .btn-back {
+            background: linear-gradient(45deg, #9e9e9e, #616161);
+        }
+
+        .error-message {
+            color: #f44336;
+            margin-top: 0.5rem;
+        }
+
+        .success-message {
+            color: #4CAF50;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Система учёта посещаемости</div>
+            <a href="/app" class="btn btn-back">Назад</a>
+        </header>
+        
+        <h1>Личный кабинет</h1>
+        
+        <div class="user-info">
+            <div class="info-item">
+                <span class="info-label">ФИО:</span>
+                <span id="full-name">Загрузка...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Логин:</span>
+                <span id="login">Загрузка...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Роль:</span>
+                <span id="role">Загрузка...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Группа:</span>
+                <span id="group">Загрузка...</span>
+            </div>
+        </div>
+        
+        <div class="change-password">
+            <h2>Смена пароля</h2>
+            <form id="password-form">
+                <div class="form-group">
+                    <label for="old-password">Старый пароль:</label>
+                    <input type="password" id="old-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Новый пароль:</label>
+                    <input type="password" id="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Подтверждение нового пароля:</label>
+                    <input type="password" id="confirm-password" required>
+                </div>
+                <button type="submit" class="btn">Сменить пароль</button>
+            </form>
+            <div id="message"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserProfile();
+        });
+
+        async function loadUserProfile() {
+            try {
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const response = await fetch('/api/users/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    
+                    document.getElementById('full-name').textContent = userData.full_name;
+                    document.getElementById('login').textContent = userData.login;
+                    document.getElementById('role').textContent = userData.role;
+                    document.getElementById('group').textContent = userData.group_id ? `ID: ${userData.group_id}` : 'Не указана';
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        document.getElementById('password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (newPassword !== confirmPassword) {
+                document.getElementById('message').innerHTML = '<div class="error-message">Новые пароли не совпадают</div>';
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                document.getElementById('message').innerHTML = '<div class="error-message">Новый пароль должен быть не менее 6 символов</div>';
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                // First, get user ID
+                const userResponse = await fetch('/api/users/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!userResponse.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const userData = await userResponse.json();
+                
+                const response = await fetch('/api/users/' + userData.id + '/password', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        user_id: userData.id,
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('message').innerHTML = '<div class="success-message">Пароль успешно изменен!</div>';
+                    document.getElementById('password-form').reset();
+                } else {
+                    document.getElementById('message').innerHTML = '<div class="error-message">' + (result.detail || 'Ошибка при смене пароля') + '</div>';
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                document.getElementById('message').innerHTML = '<div class="error-message">Ошибка при смене пароля</div>';
+            }
+        });
+    </script>
+</body>
+</html>
