@@ -31,17 +31,8 @@ except Exception as e:
 def startup():
     database.ensure_compatible_schema()
     models.Base.metadata.create_all(bind=database.engine)
-    # Sync schedule from Google Sheets on startup
-    if google_sheets_sync:
-        db = next(database.get_db())
-        try:
-            google_sheets_sync.sync_schedule_with_db(db)
-        except Exception as e:
-            print(f"Error syncing schedule from Google Sheets: {e}")
-        finally:
-            db.close()
-    else:
-        print("Skipping Google Sheets sync due to missing credentials")
+    # Schedule is displayed directly from Google Sheets in UI section "Расписание".
+    # Avoid DB sync on startup to prevent showing stale or incorrectly parsed rows.
 
 
 def get_current_user_role(login: str = Depends(auth.get_current_user), db: Session = Depends(database.get_db)):
@@ -624,27 +615,15 @@ def app_home(request: Request):
 
 
 @app.get("/schedule-page", response_class=HTMLResponse)
-def schedule_page(request: Request, db: Session = Depends(database.get_db)):
-    synced = 0
-    if google_sheets_sync:
-        try:
-            synced = google_sheets_sync.sync_schedule_with_db(db)
-        except Exception as e:
-            print(f"Error syncing schedule for page: {e}")
-
-    schedules = (
-        db.query(models.Schedule)
-        .order_by(models.Schedule.date.asc(), models.Schedule.start_time.asc())
-        .limit(200)
-        .all()
-    )
-
+def schedule_page(request: Request):
+    source_url = GOOGLE_SHEET_URL
+    embed_url = source_url.replace("/edit?", "/pubhtml?") + "&single=true&widget=true&headers=false"
     return templates.TemplateResponse(
         "schedule_page.html",
         {
             "request": request,
-            "schedules": schedules,
-            "synced": synced,
+            "source_url": source_url,
+            "embed_url": embed_url,
         },
     )
 
