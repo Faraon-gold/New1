@@ -30,9 +30,10 @@
 
     <div class="buttons-grid">
         <a href="/schedule-page" class="btn">Расписание</a>
-        <a href="/attendance/mark" class="btn">Отметить посещаемость</a>
+        <a href="/attendance/mark" class="btn">Посещаемость</a>
         <a href="/profile" class="btn secondary">Личный кабинет</a>
         <a id="admin-users-btn" href="/admin/users" class="btn warning hidden">Управление пользователями</a>
+        <a id="admin-groups-btn" href="/admin/groups/manage" class="btn warning hidden">Управление группами</a>
     </div>
 </div>
 
@@ -60,6 +61,7 @@ async function loadProfile() {
 
     if (user.role === 'admin') {
         document.getElementById('admin-users-btn').classList.remove('hidden');
+        document.getElementById('admin-groups-btn').classList.remove('hidden');
     }
 }
 

@@ -153,3 +153,18 @@ class PasswordChange(BaseModel):
 class OwnPasswordChange(BaseModel):
     old_password: str
     new_password: str
+
+
+class GroupSubjectBind(BaseModel):
+    group_id: int
+    subject_id: int
+    teacher_id: Optional[int] = None
+
+
+class GroupSubjectView(BaseModel):
+    group_id: int
+    group_name: str
+    subject_id: int
+    subject_name: str
+    teacher_id: Optional[int] = None
+    teacher_name: Optional[str] = None

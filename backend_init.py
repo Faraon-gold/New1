@@ -39,6 +39,10 @@ def ensure_schema_updates(engine) -> None:
     inspector = inspect(engine)
     dialect = engine.dialect.name
 
+    if "group_subjects" not in inspector.get_table_names() and "groups" in inspector.get_table_names() and "subjects" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE group_subjects (group_id INTEGER NOT NULL, subject_id INTEGER NOT NULL, PRIMARY KEY (group_id, subject_id), FOREIGN KEY(group_id) REFERENCES groups (id), FOREIGN KEY(subject_id) REFERENCES subjects (id))"))
+
     if "users" in inspector.get_table_names():
         user_columns = {column["name"] for column in inspector.get_columns("users")}
         with engine.begin() as connection:

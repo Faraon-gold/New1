@@ -43,6 +43,10 @@ def ensure_compatible_schema() -> None:
         _add_column_if_missing(inspector, "users", "email", email_ddl)
         added_pid = _add_column_if_missing(inspector, "users", "personal_id", personal_id_ddl)
 
+        if "group_subjects" not in inspector.get_table_names() and "groups" in inspector.get_table_names() and "subjects" in inspector.get_table_names():
+            with engine.begin() as connection:
+                connection.execute(text("CREATE TABLE group_subjects (group_id INTEGER NOT NULL, subject_id INTEGER NOT NULL, PRIMARY KEY (group_id, subject_id), FOREIGN KEY(group_id) REFERENCES groups (id), FOREIGN KEY(subject_id) REFERENCES subjects (id))"))
+
         if "users" in inspector.get_table_names():
             with engine.begin() as connection:
                 if dialect == "postgresql":

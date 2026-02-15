@@ -368,9 +368,6 @@ def get_groups(current_user: models.User = Depends(get_current_user_role), db: S
 def create_group(group: schemas.GroupCreate, current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
     check_role_access(current_user, ["admin"])
 
-    if not re.fullmatch(r"\d+", group.name):
-        raise HTTPException(status_code=400, detail="Group name must be numeric")
-
     exists = db.query(models.Group).filter(models.Group.name == group.name).first()
     if exists:
         raise HTTPException(status_code=400, detail="Group already exists")
@@ -397,6 +394,87 @@ def create_subject(subject: schemas.SubjectCreate, current_user: models.User = D
     db.commit()
     db.refresh(db_subject)
     return schemas.Subject(id=db_subject.id, name=db_subject.name, teacher_id=db_subject.teacher_id)
+
+
+@app.get("/group-subjects", response_model=List[schemas.GroupSubjectView])
+def get_group_subjects_view(
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db)
+):
+    query = (
+        db.query(models.Group.id, models.Group.name, models.Subject.id, models.Subject.name, models.Subject.teacher_id, models.User.full_name)
+        .join(models.group_subjects, models.group_subjects.c.group_id == models.Group.id)
+        .join(models.Subject, models.Subject.id == models.group_subjects.c.subject_id)
+        .outerjoin(models.User, models.User.id == models.Subject.teacher_id)
+    )
+
+    if current_user.role in {"student", "monitor"}:
+        query = query.filter(models.Group.id == current_user.group_id)
+    elif current_user.role == "teacher":
+        query = query.filter(models.Subject.teacher_id == current_user.id)
+    # dean/admin see all
+
+    rows = query.order_by(models.Group.name.asc(), models.Subject.name.asc()).all()
+    return [
+        schemas.GroupSubjectView(
+            group_id=row[0],
+            group_name=row[1],
+            subject_id=row[2],
+            subject_name=row[3],
+            teacher_id=row[4],
+            teacher_name=row[5],
+        )
+        for row in rows
+    ]
+
+
+@app.post("/group-subjects", response_model=schemas.GroupSubjectView)
+def bind_group_subject(
+    payload: schemas.GroupSubjectBind,
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    check_role_access(current_user, ["admin"])
+
+    group = db.query(models.Group).filter(models.Group.id == payload.group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if payload.teacher_id is not None:
+        teacher = db.query(models.User).filter(models.User.id == payload.teacher_id, models.User.role == "teacher").first()
+        if not teacher:
+            raise HTTPException(status_code=404, detail="Teacher not found")
+        subject.teacher_id = teacher.id
+
+    exists = db.execute(
+        models.group_subjects.select().where(
+            (models.group_subjects.c.group_id == payload.group_id)
+            & (models.group_subjects.c.subject_id == payload.subject_id)
+        )
+    ).first()
+    if not exists:
+        db.execute(models.group_subjects.insert().values(group_id=payload.group_id, subject_id=payload.subject_id))
+
+    db.commit()
+    db.refresh(subject)
+
+    teacher_name = None
+    if subject.teacher_id:
+        teacher_obj = db.query(models.User).filter(models.User.id == subject.teacher_id).first()
+        teacher_name = teacher_obj.full_name if teacher_obj else None
+
+    return schemas.GroupSubjectView(
+        group_id=group.id,
+        group_name=group.name,
+        subject_id=subject.id,
+        subject_name=subject.name,
+        teacher_id=subject.teacher_id,
+        teacher_name=teacher_name,
+    )
 
 
 @app.get("/schedule", response_model=List[schemas.Schedule])
@@ -679,6 +757,16 @@ def schedule_page(request: Request):
 @app.get("/attendance/mark", response_class=HTMLResponse)
 def attendance_mark_page(request: Request):
     return templates.TemplateResponse("attendance_mark.html", {"request": request})
+
+
+@app.get("/attendance/subject/{subject_id}", response_class=HTMLResponse)
+def attendance_subject_page(subject_id: int, request: Request):
+    return templates.TemplateResponse("attendance_subject.html", {"request": request, "subject_id": subject_id})
+
+
+@app.get("/admin/groups/manage", response_class=HTMLResponse)
+def admin_groups_manage_page(request: Request):
+    return templates.TemplateResponse("group_management.html", {"request": request})
 
 
 @app.get("/admin/users", response_class=HTMLResponse)

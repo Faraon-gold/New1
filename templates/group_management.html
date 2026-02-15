@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Управление группами</title><style>body{font-family:Arial,sans-serif;background:#f4f6fb;margin:0}.wrap{max-width:1000px;margin:30px auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}.btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}.row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;margin-top:14px}.list{margin-top:20px}.item{padding:10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px}</style></head><body><div class="wrap"><a class="btn" href="/app">← На главную</a><h1>Управление группами</h1><p>Привязка предметов к группам и преподавателя к предмету.</p><div class="row"><select id="group"></select><select id="subject"></select><select id="teacher"></select><button class="btn" onclick="bind()">Привязать</button></div><div id="list" class="list"></div></div><script>
+const token=localStorage.getItem('access_token');
+const headers=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
+async function load(){
+ if(!token){location.href='/login';return;}
+ const [g,s,u,m]=await Promise.all([
+   fetch('/groups',{headers:headers()}),
+   fetch('/subjects',{headers:headers()}),
+   fetch('/users?role_filter=teacher&limit=1000',{headers:headers()}),
+   fetch('/group-subjects',{headers:headers()})
+ ]);
+ if([g,s,u,m].some(r=>!r.ok)){document.getElementById('list').innerHTML='Ошибка загрузки';return;}
+ const groups=await g.json(), subjects=await s.json(), teachers=await u.json(), mappings=await m.json();
+ document.getElementById('group').innerHTML=groups.filter(x=>x.name!=='0').map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+ document.getElementById('subject').innerHTML=subjects.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+ document.getElementById('teacher').innerHTML='<option value="">Без преподавателя</option>'+teachers.map(x=>`<option value="${x.id}">${x.full_name}</option>`).join('');
+ document.getElementById('list').innerHTML=mappings.map(x=>`<div class="item">${x.group_name} — ${x.subject_name} — ${x.teacher_name||'-'}</div>`).join('') || '<div class="item">Пока нет привязок</div>';
+}
+async function bind(){
+ const payload={group_id:parseInt(document.getElementById('group').value),subject_id:parseInt(document.getElementById('subject').value),teacher_id:document.getElementById('teacher').value?parseInt(document.getElementById('teacher').value):null};
+ const r=await fetch('/group-subjects',{method:'POST',headers:headers(),body:JSON.stringify(payload)});
+ const d=await r.json(); if(!r.ok){alert(d.detail||'Ошибка');return;} await load();
+}
+document.addEventListener('DOMContentLoaded', load);
+</script></body></html>

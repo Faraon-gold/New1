@@ -3,14 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отметка посещаемости</title>
-    <style>body{font-family:Arial,sans-serif;background:#f4f6fb;margin:0}.wrap{max-width:900px;margin:30px auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}.btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}.stub{margin-top:16px;padding:14px;background:#f8f3e9;border-left:4px solid #d97706}</style>
+    <title>Посещаемость</title>
+    <style>body{font-family:Arial,sans-serif;background:#f4f6fb;margin:0}.wrap{max-width:1000px;margin:30px auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}.btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}.list{margin-top:16px}.item{padding:12px;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:#fafafa}.item a{font-weight:700;color:#1f6feb;text-decoration:none}.meta{color:#555}</style>
 </head>
 <body>
 <div class="wrap">
-    <a class="btn" href="/app">← На главную</a>
-    <h1>Отметка посещаемости</h1>
-    <div class="stub">Страница в разработке. Отмечать посещаемость могут: администратор, деканат, преподаватель, а также студент с атрибутом "староста".</div>
+  <a class="btn" href="/app">← На главную</a>
+  <h1>Посещаемость</h1>
+  <p class="meta">Выберите предмет для перехода к отметке посещаемости.</p>
+  <div id="subject-list" class="list"></div>
 </div>
+<script>
+async function loadSubjects(){
+  const token=localStorage.getItem('access_token');
+  if(!token){window.location.href='/login';return;}
+  const res=await fetch('/group-subjects',{headers:{'Authorization':`Bearer ${token}`}});
+  const box=document.getElementById('subject-list');
+  if(!res.ok){box.innerHTML='<div class="item">Не удалось загрузить предметы</div>';return;}
+  const data=await res.json();
+  if(!data.length){box.innerHTML='<div class="item">Для вашей роли/группы предметы не назначены.</div>';return;}
+  box.innerHTML=data.map(x=>`<div class="item"><a href="/attendance/subject/${x.subject_id}">${x.subject_name}</a><div class="meta">Преподаватель: ${x.teacher_name || '-'} | Группа: ${x.group_name}</div></div>`).join('');
+}
+document.addEventListener('DOMContentLoaded', loadSubjects);
+</script>
 </body>
 </html>

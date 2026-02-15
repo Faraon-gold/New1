@@ -27,6 +27,14 @@ teacher_groups = Table(
 )
 
 
+group_subjects = Table(
+    "group_subjects",
+    Base.metadata,
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+    Column("subject_id", Integer, ForeignKey("subjects.id"), primary_key=True),
+)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -59,6 +67,7 @@ class Group(Base):
     students = relationship("User", back_populates="group")
     teachers = relationship("User", secondary=teacher_groups, back_populates="taught_groups")
     schedules = relationship("Schedule", back_populates="group")
+    subjects = relationship("Subject", secondary=group_subjects, back_populates="groups")
 
 
 class Subject(Base):
@@ -69,6 +78,7 @@ class Subject(Base):
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     schedules = relationship("Schedule", back_populates="subject")
+    groups = relationship("Group", secondary=group_subjects, back_populates="subjects")
 
 
 class Schedule(Base):
