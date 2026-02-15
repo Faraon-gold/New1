@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -29,6 +29,7 @@ except Exception as e:
 # Создаём таблицы при старте (только для dev!)
 @app.on_event("startup")
 def startup():
+    database.ensure_compatible_schema()
     models.Base.metadata.create_all(bind=database.engine)
     # Sync schedule from Google Sheets on startup
     if google_sheets_sync:
@@ -57,76 +58,64 @@ def check_role_access(current_user: models.User, required_roles: List[str]):
         raise HTTPException(status_code=403, detail="Access denied")
 
 
+def can_mark_attendance(current_user: models.User, student: models.User) -> bool:
+    if current_user.role in {"admin", "dean", "teacher"}:
+        return True
+
+    is_student_monitor = current_user.role == "student" and bool(current_user.is_monitor)
+    is_legacy_monitor_role = current_user.role == "monitor"
+    if is_student_monitor or is_legacy_monitor_role:
+        return current_user.group_id is not None and current_user.group_id == student.group_id
+
+    return False
+
+
 def check_student_access(current_user: models.User, student_id: int, db: Session):
     """Check if current user can access student data based on role"""
     student = db.query(models.User).filter(models.User.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Admin has access to everything
-    if current_user.role == "admin":
+
+    if current_user.role in {"admin", "dean"}:
         return True
-    
-    # Dean has access to everything
-    if current_user.role == "dean":
-        return True
-    
-    # Teacher can access students in their groups
+
     if current_user.role == "teacher":
-        # Check if student is in any of teacher's groups
         teacher_groups_ids = [group.id for group in current_user.taught_groups]
         if student.group_id in teacher_groups_ids:
             return True
         raise HTTPException(status_code=403, detail="Access denied: Student not in your groups")
-    
-    # Monitor can access students only in their group and only for today's classes
-    if current_user.role == "monitor":
-        if student.group_id != current_user.group_id:
-            raise HTTPException(status_code=403, detail="Access denied: Student not in your group")
+
+    if can_mark_attendance(current_user, student):
         return True
-    
-    # Student can only access their own data
-    if current_user.role == "student":
-        if current_user.id != student_id:
-            raise HTTPException(status_code=403, detail="Access denied: Cannot access other students' data")
+
+    if current_user.role == "student" and current_user.id == student_id:
         return True
-    
+
     raise HTTPException(status_code=403, detail="Access denied")
 
 
 def check_schedule_access(current_user: models.User, schedule: models.Schedule, db: Session):
     """Check if current user can access a schedule based on role"""
-    # Admin has access to everything
-    if current_user.role == "admin":
+    if current_user.role in {"admin", "dean"}:
         return True
-    
-    # Dean has access to everything
-    if current_user.role == "dean":
-        return True
-    
-    # Teacher can access schedules for their subjects/groups
+
     if current_user.role == "teacher":
-        # Check if the schedule belongs to a group that the teacher teaches
         teacher_groups_ids = [group.id for group in current_user.taught_groups]
         if schedule.group_id in teacher_groups_ids:
             return True
         raise HTTPException(status_code=403, detail="Access denied: Schedule not in your groups")
-    
-    # Monitor can access schedules for their group only for today
-    if current_user.role == "monitor":
+
+    is_student_monitor = current_user.role == "student" and bool(current_user.is_monitor)
+    if current_user.role == "monitor" or is_student_monitor:
         if schedule.group_id != current_user.group_id:
             raise HTTPException(status_code=403, detail="Access denied: Schedule not in your group")
-        # Check if it's today's schedule
-        if schedule.date != date.today():
-            raise HTTPException(status_code=403, detail="Access denied: Can only mark attendance for today's classes")
         return True
-    
-    # Student can access schedules for their group
+
     if current_user.role == "student":
         if schedule.group_id != current_user.group_id:
             raise HTTPException(status_code=403, detail="Access denied: Schedule not in your group")
         return True
-    
+
     raise HTTPException(status_code=403, detail="Access denied")
 
 
@@ -146,7 +135,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
         login=user.login,
         password_hash=hashed_password,
         role=user.role,
-        group_id=user.group_id
+        group_id=user.group_id,
+        is_monitor=user.is_monitor
     )
     db.add(db_user)
     db.commit()
@@ -234,8 +224,14 @@ def read_users_me(current_user: models.User = Depends(get_current_user_role)):
         full_name=current_user.full_name,
         login=current_user.login,
         role=current_user.role,
-        group_id=current_user.group_id
+        group_id=current_user.group_id,
+        is_monitor=current_user.is_monitor,
     )
+
+
+@app.get("/api/users/me", response_model=schemas.User)
+def read_api_users_me(current_user: models.User = Depends(get_current_user_role)):
+    return read_users_me(current_user)
 
 
 @app.get("/users/{user_id}", response_model=schemas.User)
@@ -249,7 +245,8 @@ def get_user(user_id: int, current_user: models.User = Depends(get_current_user_
         full_name=user.full_name,
         login=user.login,
         role=user.role,
-        group_id=user.group_id
+        group_id=user.group_id,
+        is_monitor=user.is_monitor
     )
 
 
@@ -279,7 +276,8 @@ def get_users(
             full_name=user.full_name,
             login=user.login,
             role=user.role,
-            group_id=user.group_id
+            group_id=user.group_id,
+            is_monitor=user.is_monitor,
         ) for user in users
     ]
 
@@ -310,9 +308,11 @@ def update_user(
         db_user.role = user_update.role
     if user_update.group_id is not None:
         db_user.group_id = user_update.group_id
+    if user_update.is_monitor is not None:
+        db_user.is_monitor = user_update.is_monitor
     if user_update.password is not None:
         db_user.password_hash = auth.hash_password(user_update.password)
-    
+
     db.commit()
     db.refresh(db_user)
     return schemas.User(
@@ -320,7 +320,8 @@ def update_user(
         full_name=db_user.full_name,
         login=db_user.login,
         role=db_user.role,
-        group_id=db_user.group_id
+        group_id=db_user.group_id,
+        is_monitor=db_user.is_monitor,
     )
 
 
@@ -615,58 +616,23 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-@app.get("/{page}", response_class=HTMLResponse)
-def get_page(page: str, request: Request):
-    """Serve frontend pages for client-side routing"""
-    try:
-        # Check if template exists
-        template_path = os.path.join(os.path.dirname(__file__), f"../../templates/{page}_dashboard.html")
-        if os.path.exists(template_path):
-            return templates.TemplateResponse(f"{page}_dashboard.html", {"request": request})
-        else:
-            # Return main index for client-side routing
-            return templates.TemplateResponse("index.html", {"request": request})
-    except:
-        # Return main index for client-side routing
-        return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/app", response_class=HTMLResponse)
+def app_home(request: Request):
+    return templates.TemplateResponse("app_home.html", {"request": request})
+
+
+@app.get("/schedule-page", response_class=HTMLResponse)
+def schedule_page(request: Request):
+    return templates.TemplateResponse("schedule_page.html", {"request": request})
+
+
+@app.get("/attendance/mark", response_class=HTMLResponse)
+def attendance_mark_page(request: Request):
+    return templates.TemplateResponse("attendance_mark.html", {"request": request})
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(request: Request):
     return templates.TemplateResponse("admin_users.html", {"request": request})
-
-
-@app.get("/app")
-def app_redirect(request: Request, db: Session = Depends(database.get_db)):
-    """
-    Redirect user to their role-based dashboard after login
-    """
-    # Extract token from authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        # If no token in header, try to get from localStorage via frontend
-        # For this case, we'll redirect to login
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/login")
-    
-    token = auth_header.split(" ")[1]
-    try:
-        payload = auth.decode_access_token(token)
-        login = payload.get("sub")
-        if not login:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/login")
-        
-        # Get user from database
-        user = db.query(models.User).filter(models.User.login == login).first()
-        if not user:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/login")
-        
-        # Redirect to role-specific dashboard
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"/dashboard/{user.role}")
-        
-    except Exception:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/login")

@@ -7,7 +7,7 @@ import os
 import time
 from typing import Callable
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -41,6 +41,21 @@ def wait_for_database(engine_factory: Callable[[], object]) -> object:
     raise RuntimeError(
         f"Database is not ready after {MAX_DB_RETRIES} attempts."
     ) from last_error
+
+
+def ensure_schema_updates(engine) -> None:
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    if "is_monitor" not in user_columns:
+        with engine.begin() as connection:
+            if engine.dialect.name == "postgresql":
+                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT FALSE"))
+            else:
+                connection.execute(text("ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"))
+        print("Schema updated: added users.is_monitor column.")
 
 
 def ensure_admin_user(db: Session) -> None:
@@ -77,6 +92,7 @@ def ensure_seed_data(db: Session) -> None:
 def init_backend_database() -> None:
     engine = wait_for_database(lambda: create_engine(DATABASE_URL, pool_pre_ping=True))
     Base.metadata.create_all(bind=engine)
+    ensure_schema_updates(engine)
 
     session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = session_factory()

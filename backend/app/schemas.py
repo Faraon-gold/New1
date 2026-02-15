@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import date, time
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class Token(BaseModel):
@@ -17,6 +18,7 @@ class UserBase(BaseModel):
     login: str
     role: str
     group_id: Optional[int] = None
+    is_monitor: bool = False
 
 
 class UserCreate(UserBase):
@@ -28,6 +30,7 @@ class UserUpdate(BaseModel):
     login: Optional[str] = None
     role: Optional[str] = None
     group_id: Optional[int] = None
+    is_monitor: Optional[bool] = None
     password: Optional[str] = None
 
 
@@ -37,6 +40,7 @@ class User(BaseModel):
     login: str
     role: str
     group_id: Optional[int] = None
+    is_monitor: bool = False
 
     class Config:
         orm_mode = True
@@ -60,7 +64,7 @@ class Group(BaseModel):
 
 class SubjectBase(BaseModel):
     name: str
-    teacher_id: int
+    teacher_id: Optional[int] = None
 
 
 class SubjectCreate(SubjectBase):
@@ -70,7 +74,7 @@ class SubjectCreate(SubjectBase):
 class Subject(BaseModel):
     id: int
     name: str
-    teacher_id: int
+    teacher_id: Optional[int] = None
 
     class Config:
         orm_mode = True
