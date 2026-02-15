@@ -22,7 +22,7 @@ async function loadSubjects(){
   if(!res.ok){box.innerHTML='<div class="item">Не удалось загрузить предметы</div>';return;}
   const data=await res.json();
   if(!data.length){box.innerHTML='<div class="item">Для вашей роли/группы предметы не назначены.</div>';return;}
-  box.innerHTML=data.map(x=>`<div class="item"><a href="/attendance/subject/${x.subject_id}">${x.subject_name}</a><div class="meta">Преподаватель: ${x.teacher_name || '-'} | Группа: ${x.group_name}</div></div>`).join('');
+  box.innerHTML=data.map(x=>`<div class="item"><a href="/attendance/subject/${x.subject_id}?group_id=${x.group_id}">${x.subject_name}</a><div class="meta">Преподаватель: ${x.teacher_name || '-'} | Группа: ${x.group_name}</div></div>`).join('');
 }
 document.addEventListener('DOMContentLoaded', loadSubjects);
 </script>

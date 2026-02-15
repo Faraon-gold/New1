@@ -1,2 +1,119 @@
 <!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Отметка посещаемости</title><style>body{font-family:Arial,sans-serif;background:#f4f6fb;margin:0}.wrap{max-width:900px;margin:30px auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}.btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}.stub{margin-top:14px;padding:14px;background:#f8f3e9;border-left:4px solid #d97706}</style></head><body><div class="wrap"><a class="btn" href="/attendance/mark">← К списку предметов</a><h1>Предмет #{{ subject_id }}</h1><div class="stub">Заглушка: в следующем шаге здесь будет интерфейс отметки посещаемости по предмету.</div></div></body></html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Посещаемость по предмету</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#f4f6fb;margin:0}
+    .wrap{max-width:1200px;margin:30px auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+    .btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;border:0;cursor:pointer}
+    .btn.gray{background:#6b7280}
+    .controls{display:flex;gap:10px;align-items:center;margin:12px 0}
+    input[type="date"]{padding:10px;border:1px solid #d0d7de;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:14px}
+    th,td{border:1px solid #e5e7eb;padding:8px;text-align:center}
+    th:first-child, td:first-child{text-align:left;min-width:260px;background:#fafafa}
+    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px}
+    .monitor{background:#d1fae5;color:#065f46}
+    .muted{color:#6b7280}
+    .mark{display:flex;gap:6px;justify-content:center}
+    .mini{border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer}
+    .mini.on.present{background:#dcfce7;border-color:#16a34a}
+    .mini.on.absent{background:#fee2e2;border-color:#dc2626}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a class="btn gray" href="/attendance/mark">← К предметам</a>
+  <h1 id="title">Посещаемость</h1>
+  <p class="muted" id="subtitle"></p>
+
+  <div class="controls">
+    <input type="date" id="newDate">
+    <button class="btn" onclick="addDateSession()">Добавить день занятия</button>
+  </div>
+
+  <div style="overflow:auto;">
+    <table id="matrixTable"></table>
+  </div>
+</div>
+
+<script>
+const subjectId = {{ subject_id }};
+const groupId = {{ group_id }};
+const token = localStorage.getItem('access_token');
+const authHeaders = () => ({ 'Authorization': `Bearer ${token}` });
+let matrixData = null;
+
+function icon(status){
+  if(status === 'present') return '✅';
+  if(status === 'absent') return '❌';
+  return '—';
+}
+
+async function loadMatrix(){
+  if(!token){ window.location.href='/login'; return; }
+  const res = await fetch(`/attendance/subject/${subjectId}/matrix?group_id=${groupId}`, { headers: authHeaders() });
+  if(!res.ok){
+    document.getElementById('matrixTable').innerHTML = '<tr><td>Ошибка загрузки таблицы посещаемости</td></tr>';
+    return;
+  }
+
+  matrixData = await res.json();
+  document.getElementById('title').textContent = `Посещаемость: ${matrixData.subject.name}`;
+  document.getElementById('subtitle').textContent = `Группа: ${matrixData.group.name}`;
+
+  const dates = matrixData.dates;
+  const students = matrixData.students;
+
+  let html = '<thead><tr><th>Студенты группы</th>' +
+    dates.map(d => `<th>${d.date}</th>`).join('') + '</tr></thead><tbody>';
+
+  for(const st of students){
+    const monitorBadge = st.is_monitor ? '<span class="badge monitor">Староста</span>' : '';
+    html += `<tr><td>${st.full_name} ${monitorBadge}</td>`;
+    for(const d of dates){
+      const status = st.attendance[String(d.schedule_id)] || null;
+      html += `<td>
+        <div class="mark">
+          <button class="mini present ${status==='present'?'on':''}" onclick="mark(${d.schedule_id}, ${st.id}, 'present')">✓</button>
+          <button class="mini absent ${status==='absent'?'on':''}" onclick="mark(${d.schedule_id}, ${st.id}, 'absent')">✗</button>
+        </div>
+        <div class="muted">${icon(status)}</div>
+      </td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody>';
+  document.getElementById('matrixTable').innerHTML = html;
+}
+
+async function addDateSession(){
+  const v = document.getElementById('newDate').value;
+  if(!v){ alert('Выберите дату'); return; }
+
+  const res = await fetch(`/attendance/subject/${subjectId}/sessions?group_id=${groupId}&session_date=${v}`, {
+    method: 'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if(!res.ok){ alert(data.detail || 'Ошибка добавления даты'); return; }
+  await loadMatrix();
+}
+
+async function mark(scheduleId, userId, statusValue){
+  const res = await fetch(`/attendance/subject/${subjectId}/mark?group_id=${groupId}&schedule_id=${scheduleId}&user_id=${userId}&status_value=${statusValue}`, {
+    method: 'PUT',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if(!res.ok){ alert(data.detail || 'Ошибка отметки'); return; }
+  await loadMatrix();
+}
+
+document.addEventListener('DOMContentLoaded', loadMatrix);
+</script>
+</body>
+</html>

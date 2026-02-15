@@ -670,6 +670,149 @@ def get_student_schedule(student_id: int, current_user: models.User = Depends(ge
     ]
 
 
+
+
+def can_manage_subject_attendance(current_user: models.User, group_id: int) -> bool:
+    if current_user.role in {"admin", "dean", "teacher"}:
+        return True
+    if current_user.role == "monitor":
+        return current_user.group_id == group_id
+    if current_user.role == "student" and bool(current_user.is_monitor):
+        return current_user.group_id == group_id
+    return False
+
+
+@app.get("/attendance/subject/{subject_id}/matrix")
+def get_subject_attendance_matrix(
+    subject_id: int,
+    group_id: int = Query(..., description="Group ID"),
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    if not can_manage_subject_attendance(current_user, group_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    schedules = (
+        db.query(models.Schedule)
+        .filter(models.Schedule.subject_id == subject_id, models.Schedule.group_id == group_id)
+        .order_by(models.Schedule.date.asc())
+        .all()
+    )
+
+    students = (
+        db.query(models.User)
+        .filter(models.User.group_id == group_id, models.User.role.in_(["student", "monitor"]))
+        .order_by(models.User.full_name.asc())
+        .all()
+    )
+
+    attendance_rows = (
+        db.query(models.Attendance)
+        .join(models.Schedule, models.Schedule.id == models.Attendance.schedule_id)
+        .filter(models.Schedule.subject_id == subject_id, models.Schedule.group_id == group_id)
+        .all()
+    )
+
+    status_map = {}
+    for att in attendance_rows:
+        status_map[(att.user_id, att.schedule_id)] = att.status
+
+    return {
+        "subject": {"id": subject.id, "name": subject.name},
+        "group": {"id": group.id, "name": group.name},
+        "dates": [{"schedule_id": sch.id, "date": sch.date.isoformat()} for sch in schedules],
+        "students": [
+            {
+                "id": st.id,
+                "full_name": st.full_name,
+                "is_monitor": bool(st.is_monitor),
+                "attendance": {
+                    str(sch.id): status_map.get((st.id, sch.id)) for sch in schedules
+                },
+            }
+            for st in students
+        ],
+    }
+
+
+@app.post("/attendance/subject/{subject_id}/sessions")
+def add_subject_session(
+    subject_id: int,
+    group_id: int = Query(..., description="Group ID"),
+    session_date: date = Query(..., description="Session date"),
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    if not can_manage_subject_attendance(current_user, group_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    exists = (
+        db.query(models.Schedule)
+        .filter(
+            models.Schedule.subject_id == subject_id,
+            models.Schedule.group_id == group_id,
+            models.Schedule.date == session_date,
+        )
+        .first()
+    )
+    if exists:
+        return {"message": "Session already exists", "schedule_id": exists.id}
+
+    schedule = models.Schedule(subject_id=subject_id, group_id=group_id, date=session_date)
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    return {"message": "Session created", "schedule_id": schedule.id}
+
+
+@app.put("/attendance/subject/{subject_id}/mark")
+def mark_subject_attendance(
+    subject_id: int,
+    group_id: int = Query(..., description="Group ID"),
+    schedule_id: int = Query(..., description="Schedule ID"),
+    user_id: int = Query(..., description="Student user ID"),
+    status_value: str = Query(..., description="present|absent"),
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    if status_value not in {"present", "absent"}:
+        raise HTTPException(status_code=400, detail="status_value must be present or absent")
+
+    if not can_manage_subject_attendance(current_user, group_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    schedule = db.query(models.Schedule).filter(models.Schedule.id == schedule_id).first()
+    if not schedule or schedule.subject_id != subject_id or schedule.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    student = db.query(models.User).filter(models.User.id == user_id).first()
+    if not student or student.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Student not found in group")
+
+    att = db.query(models.Attendance).filter(
+        models.Attendance.schedule_id == schedule_id,
+        models.Attendance.user_id == user_id,
+    ).first()
+
+    if att:
+        att.status = status_value
+    else:
+        att = models.Attendance(schedule_id=schedule_id, user_id=user_id, status=status_value)
+        db.add(att)
+
+    db.commit()
+    db.refresh(att)
+    return {"message": "Attendance updated", "status": att.status}
+
+
 @app.get("/my-attendance")
 def get_my_attendance(current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
     if current_user.role != "student":
@@ -760,8 +903,8 @@ def attendance_mark_page(request: Request):
 
 
 @app.get("/attendance/subject/{subject_id}", response_class=HTMLResponse)
-def attendance_subject_page(subject_id: int, request: Request):
-    return templates.TemplateResponse("attendance_subject.html", {"request": request, "subject_id": subject_id})
+def attendance_subject_page(subject_id: int, request: Request, group_id: int = Query(...)):
+    return templates.TemplateResponse("attendance_subject.html", {"request": request, "subject_id": subject_id, "group_id": group_id})
 
 
 @app.get("/admin/groups/manage", response_class=HTMLResponse)
