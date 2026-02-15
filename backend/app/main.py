@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from . import models, schemas, auth, database
 from .google_sheets import GoogleSheetsSync
-from datetime import timedelta, date
+from datetime import timedelta, date, time
 from typing import List
 import os
 import re
@@ -766,7 +766,25 @@ def add_subject_session(
     if exists:
         return {"message": "Session already exists", "schedule_id": exists.id}
 
-    schedule = models.Schedule(subject_id=subject_id, group_id=group_id, date=session_date)
+    template_schedule = (
+        db.query(models.Schedule)
+        .filter(models.Schedule.subject_id == subject_id, models.Schedule.group_id == group_id)
+        .order_by(models.Schedule.date.desc())
+        .first()
+    )
+
+    default_start = template_schedule.start_time if template_schedule and template_schedule.start_time else time(9, 0)
+    default_end = template_schedule.end_time if template_schedule and template_schedule.end_time else time(10, 30)
+    default_teacher_id = template_schedule.teacher_id if template_schedule else None
+
+    schedule = models.Schedule(
+        subject_id=subject_id,
+        group_id=group_id,
+        date=session_date,
+        start_time=default_start,
+        end_time=default_end,
+        teacher_id=default_teacher_id,
+    )
     db.add(schedule)
     db.commit()
     db.refresh(schedule)

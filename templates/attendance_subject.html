@@ -67,12 +67,13 @@ async function loadMatrix(){
   const dates = matrixData.dates;
   const students = matrixData.students;
 
-  let html = '<thead><tr><th>Студенты группы</th>' +
+  let html = '<thead><tr><th>#</th><th>Студенты группы</th>' +
     dates.map(d => `<th>${d.date}</th>`).join('') + '</tr></thead><tbody>';
 
-  for(const st of students){
+  for(let idx=0; idx<students.length; idx++){
+    const st = students[idx];
     const monitorBadge = st.is_monitor ? '<span class="badge monitor">Староста</span>' : '';
-    html += `<tr><td>${st.full_name} ${monitorBadge}</td>`;
+    html += `<tr><td>${idx + 1}</td><td>${st.full_name} ${monitorBadge}</td>`;
     for(const d of dates){
       const status = st.attendance[String(d.schedule_id)] || null;
       html += `<td>
