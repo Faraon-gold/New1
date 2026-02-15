@@ -682,7 +682,5 @@ def attendance_mark_page(request: Request):
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
-def admin_users_page(request: Request, current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
-    check_role_access(current_user, ["admin"])
-    groups = db.query(models.Group).order_by(models.Group.name.asc()).all()
-    return templates.TemplateResponse("admin_users.html", {"request": request, "groups": groups})
+def admin_users_page(request: Request):
+    return templates.TemplateResponse("admin_users.html", {"request": request})
