@@ -35,11 +35,21 @@ def ensure_compatible_schema() -> None:
             else "ALTER TABLE users ADD COLUMN is_monitor BOOLEAN NOT NULL DEFAULT 0"
         )
         subject_teacher_ddl = "ALTER TABLE subjects ADD COLUMN teacher_id INTEGER"
+        email_ddl = "ALTER TABLE users ADD COLUMN email VARCHAR(255)"
+        personal_id_ddl = "ALTER TABLE users ADD COLUMN personal_id VARCHAR(64)"
 
         _add_column_if_missing(inspector, "users", "is_monitor", user_monitor_ddl)
         _add_column_if_missing(inspector, "subjects", "teacher_id", subject_teacher_ddl)
+        _add_column_if_missing(inspector, "users", "email", email_ddl)
+        added_pid = _add_column_if_missing(inspector, "users", "personal_id", personal_id_ddl)
+
+        if "users" in inspector.get_table_names():
+            with engine.begin() as connection:
+                if dialect == "postgresql":
+                    connection.execute(text("UPDATE users SET personal_id = 'U-' || id::text WHERE personal_id IS NULL OR personal_id = ''"))
+                else:
+                    connection.execute(text("UPDATE users SET personal_id = 'U-' || CAST(id AS TEXT) WHERE personal_id IS NULL OR personal_id = ''"))
     except Exception:
-        # Ignore migration errors here; normal startup/table creation flow will continue.
         pass
 
 

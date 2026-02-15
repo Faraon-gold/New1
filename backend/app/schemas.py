@@ -1,5 +1,5 @@
 from datetime import date, time
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -19,10 +19,13 @@ class UserBase(BaseModel):
     role: str
     group_id: Optional[int] = None
     is_monitor: bool = False
+    email: Optional[str] = None
 
 
 class UserCreate(UserBase):
     password: str
+    personal_id: Optional[str] = None
+    teacher_group_ids: List[int] = []
 
 
 class UserUpdate(BaseModel):
@@ -32,15 +35,26 @@ class UserUpdate(BaseModel):
     group_id: Optional[int] = None
     is_monitor: Optional[bool] = None
     password: Optional[str] = None
+    email: Optional[str] = None
+    personal_id: Optional[str] = None
+    teacher_group_ids: Optional[List[int]] = None
+
+
+class UserProfileUpdate(BaseModel):
+    email: Optional[str] = None
 
 
 class User(BaseModel):
     id: int
+    personal_id: str
     full_name: str
     login: str
     role: str
     group_id: Optional[int] = None
+    group_name: Optional[str] = None
     is_monitor: bool = False
+    email: Optional[str] = None
+    teacher_group_ids: List[int] = []
 
     class Config:
         orm_mode = True

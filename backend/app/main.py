@@ -9,6 +9,8 @@ from .google_sheets import GoogleSheetsSync
 from datetime import timedelta, date
 from typing import List
 import os
+import re
+import uuid
 
 # Initialize templates
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "../../templates"))
@@ -47,6 +49,51 @@ def check_role_access(current_user: models.User, required_roles: List[str]):
     """Check if user has required role"""
     if current_user.role not in required_roles:
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def ensure_default_group(db: Session) -> models.Group:
+    group = db.query(models.Group).filter(models.Group.name == "0").first()
+    if group:
+        return group
+    group = models.Group(name="0")
+    db.add(group)
+    db.commit()
+    db.refresh(group)
+    return group
+
+
+def normalize_user_group_and_teacher_links(db: Session, user: models.User, teacher_group_ids: List[int] | None = None):
+    default_group = ensure_default_group(db)
+
+    if user.role in {"admin", "dean"}:
+        user.group_id = default_group.id
+        user.taught_groups = []
+        user.is_monitor = False
+    elif user.role == "teacher":
+        user.group_id = default_group.id
+        if teacher_group_ids is not None:
+            groups = db.query(models.Group).filter(models.Group.id.in_(teacher_group_ids)).all() if teacher_group_ids else []
+            user.taught_groups = groups
+        user.is_monitor = False
+    else:
+        if user.group_id is None:
+            raise HTTPException(status_code=400, detail="Student/monitor must have group")
+
+
+def serialize_user(user: models.User) -> schemas.User:
+    teacher_group_ids = [group.id for group in user.taught_groups] if user.role == "teacher" else []
+    return schemas.User(
+        id=user.id,
+        personal_id=user.personal_id,
+        full_name=user.full_name,
+        login=user.login,
+        role=user.role,
+        group_id=user.group_id,
+        group_name=user.group.name if user.group else None,
+        is_monitor=user.is_monitor,
+        email=user.email,
+        teacher_group_ids=teacher_group_ids,
+    )
 
 
 def can_mark_attendance(current_user: models.User, student: models.User) -> bool:
@@ -112,27 +159,32 @@ def check_schedule_access(current_user: models.User, schedule: models.Schedule, 
 
 @app.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
-    # Check if user already exists
     existing_user = db.query(models.User).filter(models.User.login == user.login).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Login already registered")
-    
-    # Hash the password
-    hashed_password = auth.hash_password(user.password)
-    
-    # Create new user
+    if user.personal_id:
+        pid_exists = db.query(models.User).filter(models.User.personal_id == user.personal_id).first()
+        if pid_exists:
+            raise HTTPException(status_code=400, detail="Personal ID already exists")
+
     db_user = models.User(
         full_name=user.full_name,
         login=user.login,
-        password_hash=hashed_password,
+        password_hash=auth.hash_password(user.password),
         role=user.role,
         group_id=user.group_id,
-        is_monitor=user.is_monitor
+        is_monitor=user.is_monitor,
+        email=user.email,
+        personal_id=(user.personal_id or f"U-{uuid.uuid4().hex[:10]}"),
     )
     db.add(db_user)
+    db.flush()
+
+    normalize_user_group_and_teacher_links(db, db_user, user.teacher_group_ids)
+
     db.commit()
     db.refresh(db_user)
-    return db_user
+    return serialize_user(db_user)
 
 
 from fastapi import Form
@@ -210,14 +262,7 @@ def change_own_password(
 
 @app.get("/users/me", response_model=schemas.User)
 def read_users_me(current_user: models.User = Depends(get_current_user_role)):
-    return schemas.User(
-        id=current_user.id,
-        full_name=current_user.full_name,
-        login=current_user.login,
-        role=current_user.role,
-        group_id=current_user.group_id,
-        is_monitor=current_user.is_monitor,
-    )
+    return serialize_user(current_user)
 
 
 @app.get("/api/users/me", response_model=schemas.User)
@@ -231,14 +276,7 @@ def get_user(user_id: int, current_user: models.User = Depends(get_current_user_
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return schemas.User(
-        id=user.id,
-        full_name=user.full_name,
-        login=user.login,
-        role=user.role,
-        group_id=user.group_id,
-        is_monitor=user.is_monitor
-    )
+    return serialize_user(user)
 
 
 @app.get("/users", response_model=List[schemas.User])
@@ -261,36 +299,25 @@ def get_users(
         query = query.filter(models.User.group_id == group_id)
     
     users = query.offset(skip).limit(limit).all()
-    return [
-        schemas.User(
-            id=user.id,
-            full_name=user.full_name,
-            login=user.login,
-            role=user.role,
-            group_id=user.group_id,
-            is_monitor=user.is_monitor,
-        ) for user in users
-    ]
+    return [serialize_user(user) for user in users]
 
 
 @app.put("/users/{user_id}", response_model=schemas.User)
 def update_user(
-    user_id: int, 
-    user_update: schemas.UserUpdate, 
-    current_user: models.User = Depends(get_current_user_role), 
+    user_id: int,
+    user_update: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_user_role),
     db: Session = Depends(database.get_db)
 ):
     check_role_access(current_user, ["admin"])
-    
+
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Update fields if provided
+
     if user_update.full_name is not None:
         db_user.full_name = user_update.full_name
     if user_update.login is not None:
-        # Check if new login is already taken
         existing_user = db.query(models.User).filter(models.User.login == user_update.login).first()
         if existing_user and existing_user.id != user_id:
             raise HTTPException(status_code=400, detail="Login already registered")
@@ -301,19 +328,21 @@ def update_user(
         db_user.group_id = user_update.group_id
     if user_update.is_monitor is not None:
         db_user.is_monitor = user_update.is_monitor
+    if user_update.email is not None:
+        db_user.email = user_update.email
+    if user_update.personal_id is not None:
+        pid_exists = db.query(models.User).filter(models.User.personal_id == user_update.personal_id, models.User.id != user_id).first()
+        if pid_exists:
+            raise HTTPException(status_code=400, detail="Personal ID already exists")
+        db_user.personal_id = user_update.personal_id
     if user_update.password is not None:
         db_user.password_hash = auth.hash_password(user_update.password)
 
+    normalize_user_group_and_teacher_links(db, db_user, user_update.teacher_group_ids)
+
     db.commit()
     db.refresh(db_user)
-    return schemas.User(
-        id=db_user.id,
-        full_name=db_user.full_name,
-        login=db_user.login,
-        role=db_user.role,
-        group_id=db_user.group_id,
-        is_monitor=db_user.is_monitor,
-    )
+    return serialize_user(db_user)
 
 
 @app.delete("/users/{user_id}")
@@ -338,7 +367,14 @@ def get_groups(current_user: models.User = Depends(get_current_user_role), db: S
 @app.post("/groups", response_model=schemas.Group)
 def create_group(group: schemas.GroupCreate, current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
     check_role_access(current_user, ["admin"])
-    
+
+    if not re.fullmatch(r"\d+", group.name):
+        raise HTTPException(status_code=400, detail="Group name must be numeric")
+
+    exists = db.query(models.Group).filter(models.Group.name == group.name).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="Group already exists")
+
     db_group = models.Group(name=group.name)
     db.add(db_group)
     db.commit()
@@ -591,6 +627,18 @@ def sync_schedule(current_user: models.User = Depends(get_current_user_role), db
 #     return templates.TemplateResponse("app_home.html", {"request": request})
 
 
+@app.put("/users/me/profile", response_model=schemas.User)
+def update_my_profile(
+    profile_update: schemas.UserProfileUpdate,
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db)
+):
+    current_user.email = profile_update.email
+    db.commit()
+    db.refresh(current_user)
+    return serialize_user(current_user)
+
+
 @app.get("/profile", response_class=HTMLResponse)
 def profile(request: Request):
     """User profile page"""
@@ -634,5 +682,7 @@ def attendance_mark_page(request: Request):
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
-def admin_users_page(request: Request):
-    return templates.TemplateResponse("admin_users.html", {"request": request})
+def admin_users_page(request: Request, current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
+    check_role_access(current_user, ["admin"])
+    groups = db.query(models.Group).order_by(models.Group.name.asc()).all()
+    return templates.TemplateResponse("admin_users.html", {"request": request, "groups": groups})

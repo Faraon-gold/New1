@@ -143,6 +143,10 @@
                 <span id="full-name">Загрузка...</span>
             </div>
             <div class="info-item">
+                <span class="info-label">Личный ID:</span>
+                <span id="personal-id">Загрузка...</span>
+            </div>
+            <div class="info-item">
                 <span class="info-label">Логин:</span>
                 <span id="login">Загрузка...</span>
             </div>
@@ -154,9 +158,21 @@
                 <span class="info-label">Группа:</span>
                 <span id="group">Загрузка...</span>
             </div>
+            <div class="info-item">
+                <span class="info-label">Email:</span>
+                <span id="email">Не указан</span>
+            </div>
         </div>
-        
+
         <div class="change-password">
+            <h2>Контактные данные</h2>
+            <form id="email-form" class="mb-4">
+                <div class="form-group">
+                    <label for="new-email">Email:</label>
+                    <input type="email" id="new-email" placeholder="name@example.com">
+                </div>
+                <button type="submit" class="btn">Сохранить email</button>
+            </form>
             <h2>Смена пароля</h2>
             <form id="password-form">
                 <div class="form-group">
@@ -201,9 +217,12 @@
                     const userData = await response.json();
                     
                     document.getElementById('full-name').textContent = userData.full_name;
+                    document.getElementById('personal-id').textContent = userData.personal_id || '-';
                     document.getElementById('login').textContent = userData.login;
                     document.getElementById('role').textContent = userData.role;
-                    document.getElementById('group').textContent = userData.group_id ? `ID: ${userData.group_id}` : 'Не указана';
+                    document.getElementById('group').textContent = userData.group_name || (userData.group_id ? `ID: ${userData.group_id}` : 'Не указана');
+                    document.getElementById('email').textContent = userData.email || 'Не указан';
+                    document.getElementById('new-email').value = userData.email || ''; 
                 } else {
                     window.location.href = '/login';
                 }
@@ -213,7 +232,29 @@
             }
         }
 
-        document.getElementById('password-form').addEventListener('submit', async function(e) {
+        
+        document.getElementById('email-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/users/me/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ email: document.getElementById('new-email').value || null })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Ошибка сохранения email');
+                document.getElementById('email').textContent = result.email || 'Не указан';
+                document.getElementById('message').innerHTML = '<div class="success-message">Email обновлен</div>';
+            } catch (error) {
+                document.getElementById('message').innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        });
+
+document.getElementById('password-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const oldPassword = document.getElementById('old-password').value;
@@ -237,29 +278,13 @@
                     return;
                 }
 
-                // First, get user ID
-                const userResponse = await fetch('/api/users/me', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (!userResponse.ok) {
-                    window.location.href = '/login';
-                    return;
-                }
-
-                const userData = await userResponse.json();
-                
-                const response = await fetch('/api/users/' + userData.id + '/password', {
+                const response = await fetch('/users/me/password', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        user_id: userData.id,
                         old_password: oldPassword,
                         new_password: newPassword
                     })

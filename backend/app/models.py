@@ -1,4 +1,5 @@
 from datetime import datetime
+import uuid
 
 from sqlalchemy import (
     Boolean,
@@ -40,6 +41,8 @@ class User(Base):
     )
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     is_monitor = Column(Boolean, nullable=False, default=False, server_default="false")
+    personal_id = Column(String(64), index=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), nullable=True)
 
     group = relationship("Group", back_populates="students")
     attendances = relationship("Attendance", back_populates="student")
