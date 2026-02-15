@@ -1,77 +1,95 @@
 #!/usr/bin/env python3
-"""
-Initialize the backend database with sample data including admin user
-"""
+"""Initialize the backend database with baseline data and safe DB retries."""
+
+from __future__ import annotations
 
 import os
-import sys
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import time
+from typing import Callable
 
-# Set the DATABASE_URL environment variable before importing database modules
-os.environ.setdefault("DATABASE_URL", "sqlite:///./attendance.db")
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session, sessionmaker
 
-# Add the backend app directory to the path so we can import from it
-sys.path.append('/workspace/backend/app')
-
-# Import from the backend app modules
-from backend.app.models import User, Group, Subject, Base
-from backend.app.database import DATABASE_URL as DB_URL
 from backend.app.auth import hash_password
+from backend.app.models import Base, Group, Subject, User
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./attendance.db")
+MAX_DB_RETRIES = int(os.getenv("DB_INIT_MAX_RETRIES", "30"))
+DB_RETRY_DELAY_SECONDS = float(os.getenv("DB_INIT_RETRY_DELAY", "2"))
 
 
-def init_backend_database():
-    """Initialize the database with sample data"""
-    engine = create_engine(DB_URL)
-    Base.metadata.create_all(bind=engine)
-    
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    
-    try:
-        # Check if admin user already exists
-        admin_user = db.query(User).filter(User.login == "admin").first()
-        if not admin_user:
-            # Create admin user
-            admin = User(
-                full_name="Админ Администратов",
-                login="admin",
-                password_hash=hash_password("admin123"),
-                role="admin"
+def wait_for_database(engine_factory: Callable[[], object]) -> object:
+    """Wait until the database is ready to accept SQL queries."""
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_DB_RETRIES + 1):
+        engine = engine_factory()
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            if attempt > 1:
+                print(f"Database became available on attempt {attempt}/{MAX_DB_RETRIES}.")
+            return engine
+        except OperationalError as exc:
+            last_error = exc
+            print(
+                f"Database is not ready yet (attempt {attempt}/{MAX_DB_RETRIES}): {exc}. "
+                f"Retrying in {DB_RETRY_DELAY_SECONDS} sec..."
             )
-            db.add(admin)
-            db.commit()
-            db.refresh(admin)
-            print("Admin user created successfully!")
-        else:
-            print("Admin user already exists!")
-        
-        # Check if other essential data exists
-        if not db.query(Group).count():
-            # Create some sample groups
-            group1 = Group(name="ИС-201")
-            group2 = Group(name="ИС-202")
-            db.add(group1)
-            db.add(group2)
-            db.commit()
-            print("Sample groups created!")
-        
-        if not db.query(Subject).count():
-            # Create some sample subjects
-            subject1 = Subject(name="Математический анализ")
-            subject2 = Subject(name="Программирование")
-            db.add(subject1)
-            db.add(subject2)
-            db.commit()
-            print("Sample subjects created!")
-            
-    except Exception as e:
-        print(f"Error initializing database: {e}")
+            time.sleep(DB_RETRY_DELAY_SECONDS)
+
+    raise RuntimeError(
+        f"Database is not ready after {MAX_DB_RETRIES} attempts."
+    ) from last_error
+
+
+def ensure_admin_user(db: Session) -> None:
+    if db.query(User).filter(User.login == "admin").first():
+        print("Admin user already exists.")
+        return
+
+    admin = User(
+        full_name="Админ Администратов",
+        login="admin",
+        password_hash=hash_password("admin123"),
+        role="admin",
+    )
+    db.add(admin)
+    db.commit()
+    print("Admin user created successfully.")
+
+
+def ensure_seed_data(db: Session) -> None:
+    if db.query(Group).count() == 0:
+        db.add_all([Group(name="ИС-201"), Group(name="ИС-202")])
+        db.commit()
+        print("Sample groups created.")
+
+    if db.query(Subject).count() == 0:
+        db.add_all([
+            Subject(name="Математический анализ"),
+            Subject(name="Программирование"),
+        ])
+        db.commit()
+        print("Sample subjects created.")
+
+
+def init_backend_database() -> None:
+    engine = wait_for_database(lambda: create_engine(DATABASE_URL, pool_pre_ping=True))
+    Base.metadata.create_all(bind=engine)
+
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = session_factory()
+    try:
+        ensure_admin_user(db)
+        ensure_seed_data(db)
+    except Exception as exc:  # runtime safety for startup initialization
         db.rollback()
+        raise RuntimeError(f"Error initializing database: {exc}") from exc
     finally:
         db.close()
 
 
 if __name__ == "__main__":
     init_backend_database()
-    print("Database initialization completed!")
+    print("Database initialization completed.")
