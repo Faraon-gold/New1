@@ -3,23 +3,25 @@
 {% block title %}Управление пользователями и группами - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">Управление пользователями и группами</h2>
-  <a href="/app" class="btn btn-outline-secondary">На главную</a>
+  <a href="/app" class="btn btn-warning fw-bold">На главную</a>
 </div>
-<p class="text-muted mb-3">Единый раздел: пользователи, группы, предметы и привязки.</p>
 
 <div class="row g-3 mb-3">
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-header"><h6 class="mb-0">Создать группу</h6></div>
-      <div class="card-body d-flex gap-2">
+      <div class="card-header"><h6 class="mb-0">Создать/удалить группу</h6></div>
+      <div class="card-body d-flex gap-2 mb-2">
         <input id="newGroupName" class="form-control" placeholder="Например: ИС-201_2026">
         <button class="btn btn-outline-primary" onclick="createGroup()">Создать</button>
       </div>
+      <div class="card-body pt-0">
+        <div id="groupsList" class="small"></div>
+      </div>
     </div>
   </div>
-  <div class="col-md-8">
+  <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header"><h6 class="mb-0">Создать предмет</h6></div>
       <div class="card-body row g-2">
@@ -41,7 +43,7 @@
       <div class="col-md-2"><input class="form-control" name="email" placeholder="Email" type="email"></div>
       <div class="col-md-3"><input class="form-control" name="personal_id" placeholder="Личный ID (опц.)"></div>
 
-      <div class="col-md-2"><input class="form-control" name="birth_date" type="date" placeholder="Дата рождения"></div>
+      <div class="col-md-2"><input class="form-control" name="birth_date" type="date"></div>
       <div class="col-md-2"><input class="form-control" name="direction_code" placeholder="Код направления"></div>
       <div class="col-md-3"><input class="form-control" name="direction_name" placeholder="Наименование направления"></div>
       <div class="col-md-3"><input class="form-control" name="faculty" placeholder="Факультет"></div>
@@ -55,7 +57,6 @@
       <div class="col-md-2"><select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')"><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
       <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
       <div class="col-md-3"><select class="form-select" name="teacher_group_ids" id="addTeacherGroups" multiple></select></div>
-      <div class="col-md-2 form-check align-self-center"><input class="form-check-input" type="checkbox" id="addIsMonitor" name="is_monitor"><label class="form-check-label" for="addIsMonitor">Староста</label></div>
       <div class="col-md-2"><button class="btn btn-primary" type="submit">Добавить</button></div>
     </form>
   </div>
@@ -69,14 +70,21 @@
     <div class="col-md-3"><select id="mapTeacher" class="form-select"></select></div>
     <div class="col-md-1"><button class="btn btn-outline-primary w-100" onclick="bindGroupSubject()">OK</button></div>
   </div>
-  <div class="card-body pt-0"><div id="mappingList" class="small text-muted"></div></div>
+  <div class="card-body pt-0"><div id="mappingList" class="small"></div></div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h5 class="mb-0">Текущие пользователи</h5></div>
+  <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+    <h5 class="mb-0">Текущие пользователи</h5>
+    <input id="userSearch" class="form-control" style="max-width:320px" placeholder="Поиск: ФИО, логин, email, группа...">
+  </div>
   <div class="card-body table-responsive">
     <table class="table table-striped" id="usersTable">
-      <thead><tr><th>DB ID</th><th>Личный ID</th><th>ФИО</th><th>Логин</th><th>Email</th><th>Дата рождения</th><th>Направление</th><th>Факультет</th><th>Статус</th><th>Роль</th><th>Группа</th><th>Группы преподавателя</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th data-sort="id">DB ID ↕</th><th data-sort="personal_id">Личный ID ↕</th><th data-sort="full_name">ФИО ↕</th><th data-sort="login">Логин ↕</th><th data-sort="email">Email ↕</th><th data-sort="birth_date">Дата рождения ↕</th><th data-sort="direction">Направление ↕</th><th data-sort="faculty">Факультет ↕</th><th data-sort="study_status">Статус ↕</th><th data-sort="role">Роль ↕</th><th data-sort="group">Группа ↕</th><th>Группы преподавателя</th><th></th>
+        </tr>
+      </thead>
       <tbody></tbody>
     </table>
   </div>
@@ -100,29 +108,18 @@
         <div class="col-6"><select id="editRole" class="form-select" onchange="toggleTeacherGroups('edit')"></select></div>
         <div class="col-6"><select id="editGroup" class="form-select"></select></div>
         <div class="col-6"><select id="editTeacherGroups" class="form-select" multiple></select></div>
-        <div class="col-6 form-check"><input class="form-check-input" type="checkbox" id="editIsMonitor"><label class="form-check-label" for="editIsMonitor">Староста</label></div>
+        <div class="col-6"><input id="editPassword" class="form-control" type="password" placeholder="Новый пароль (опционально)"></div>
       </form>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveEdit()">Сохранить</button></div>
   </div></div>
 </div>
 
-<div class="modal fade" id="passwordModal" tabindex="-1">
-  <div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Смена пароля</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <input type="hidden" id="pwdUserId">
-      <div class="mb-2"><label class="form-label">Старый пароль</label><input id="pwdOld" type="password" class="form-control"></div>
-      <div><label class="form-label">Новый пароль</label><input id="pwdNew" type="password" class="form-control"></div>
-    </div>
-    <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="savePasswordChange()">Изменить пароль</button></div>
-  </div></div>
-</div>
-
 <script>
 const token = localStorage.getItem('access_token');
 let users=[], groups=[], subjects=[], mappings=[];
-let editModal, passwordModal;
+let editModal;
+let currentSort={key:'id',dir:'asc'};
 const roleOptions=['student','monitor','teacher','dean','admin'];
 const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
@@ -143,18 +140,45 @@ function renderSelects(){
   toggleTeacherGroups('add'); toggleTeacherGroups('edit');
 }
 
+function renderGroups(){
+  const rows=groups.filter(g=>g.name!=='0').map(g=>`<div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1"><span>${g.name}</span><button class="btn btn-sm btn-outline-danger" onclick="deleteGroup(${g.id}, '${g.name.replace(/'/g,"\\'")}')">Удалить</button></div>`);
+  groupsList.innerHTML=rows.length?rows.join(''):'<span class="text-muted">Групп нет</span>';
+}
+
+function sortValue(u,key){
+  if(key==='group') return (u.group_name||groupNameById(u.group_id)||'').toLowerCase();
+  if(key==='direction') return `${u.direction_code||''} ${u.direction_name||''}`.toLowerCase();
+  const v=u[key];
+  return v===null||v===undefined ? '' : String(v).toLowerCase();
+}
+
 function renderUsers(){
-  const tbody=document.querySelector('#usersTable tbody'); tbody.innerHTML='';
-  users.forEach(u=>{
+  const tbody=document.querySelector('#usersTable tbody');
+  const q=(userSearch.value||'').toLowerCase().trim();
+  let filtered=users.filter(u=>{
+    const hay=[u.full_name,u.login,u.email,u.personal_id,u.group_name,groupNameById(u.group_id),u.direction_code,u.direction_name,u.faculty,u.role,statusMap[u.study_status]||u.study_status].join(' ').toLowerCase();
+    return !q || hay.includes(q);
+  });
+  filtered.sort((a,b)=>{
+    const av=sortValue(a,currentSort.key), bv=sortValue(b,currentSort.key);
+    if(av<bv) return currentSort.dir==='asc'?-1:1;
+    if(av>bv) return currentSort.dir==='asc'?1:-1;
+    return 0;
+  });
+
+  tbody.innerHTML='';
+  filtered.forEach(u=>{
     const tr=document.createElement('tr');
     const direction = [u.direction_code||'', u.direction_name||''].filter(Boolean).join(' — ') || '-';
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}${u.is_monitor?' (староста)':''}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-warning' onclick='openPasswordModal(${u.id})'>Сменить пароль</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
     tbody.appendChild(tr);
   });
 }
 
 function renderMappings(){
-  mappingList.innerHTML = mappings.length ? mappings.map(x=>`${x.group_name} — ${x.subject_name} — ${x.teacher_name||'-'}`).join('<br>') : 'Пока нет привязок';
+  mappingList.innerHTML = mappings.length
+    ? mappings.map(x=>`<div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1"><span>${x.group_name} — ${x.subject_name} — ${x.teacher_name||'-'}</span><button class="btn btn-sm btn-outline-danger" onclick="unbindGroupSubject(${x.group_id}, ${x.subject_id})">Удалить привязку</button></div>`).join('')
+    : '<span class="text-muted">Пока нет привязок</span>';
 }
 
 async function loadAll(){
@@ -167,7 +191,7 @@ async function loadAll(){
   ]);
   if([u,g,s,m].some(r=>!r.ok)){ alert('Ошибка загрузки данных'); return; }
   users=await u.json(); groups=await g.json(); subjects=await s.json(); mappings=await m.json();
-  renderSelects(); renderUsers(); renderMappings();
+  renderSelects(); renderGroups(); renderUsers(); renderMappings();
 }
 
 function toggleTeacherGroups(prefix){
@@ -181,6 +205,14 @@ async function createGroup(){
   if(!r.ok) return alert(d.detail||'Ошибка'); newGroupName.value=''; await loadAll();
 }
 
+async function deleteGroup(id, name){
+  if(!confirm(`Удалить группу "${name}"?`)) return;
+  const r=await fetch(`/groups/${id}`,{method:'DELETE',headers:authHeaders()});
+  const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка удаления группы');
+  await loadAll();
+}
+
 async function createSubject(){
   const name=newSubjectName.value.trim(); if(!name) return alert('Введите название предмета');
   const t=newSubjectTeacher.value; const payload={name, teacher_id:t?parseInt(t):null};
@@ -192,6 +224,14 @@ async function bindGroupSubject(){
   const payload={group_id:parseInt(mapGroup.value),subject_id:parseInt(mapSubject.value),teacher_id:mapTeacher.value?parseInt(mapTeacher.value):null};
   const r=await fetch('/group-subjects',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
   if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
+}
+
+async function unbindGroupSubject(groupId, subjectId){
+  if(!confirm('Удалить привязку предмета к группе?')) return;
+  const r=await fetch(`/group-subjects?group_id=${groupId}&subject_id=${subjectId}`, {method:'DELETE', headers:authHeaders()});
+  const d=await r.json();
+  if(!r.ok) return alert(d.detail||'Ошибка удаления привязки');
+  await loadAll();
 }
 
 addUserForm.addEventListener('submit', async (e)=>{
@@ -210,7 +250,6 @@ addUserForm.addEventListener('submit', async (e)=>{
     faculty:f.faculty.value||null,
     study_status:f.study_status.value,
     group_id:f.group_id.value?parseInt(f.group_id.value):null,
-    is_monitor:f.is_monitor.checked,
     teacher_group_ids:selectedValues(addTeacherGroups)
   };
   const r=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
@@ -219,8 +258,8 @@ addUserForm.addEventListener('submit', async (e)=>{
 
 function openEdit(id){
   const u=users.find(x=>x.id===id); if(!u) return;
-  editId.value=u.id; editFullName.value=u.full_name; editLogin.value=u.login; editPersonalId.value=u.personal_id||''; editEmail.value=u.email||''; editRole.value=u.role; editGroup.value=u.group_id||''; editIsMonitor.checked=!!u.is_monitor;
-  editBirthDate.value=u.birth_date||''; editDirectionCode.value=u.direction_code||''; editDirectionName.value=u.direction_name||''; editFaculty.value=u.faculty||''; editStudyStatus.value=u.study_status||'studying';
+  editId.value=u.id; editFullName.value=u.full_name; editLogin.value=u.login; editPersonalId.value=u.personal_id||''; editEmail.value=u.email||''; editRole.value=u.role; editGroup.value=u.group_id||'';
+  editBirthDate.value=u.birth_date||''; editDirectionCode.value=u.direction_code||''; editDirectionName.value=u.direction_name||''; editFaculty.value=u.faculty||''; editStudyStatus.value=u.study_status||'studying'; editPassword.value='';
   Array.from(editTeacherGroups.options).forEach(o=>o.selected=(u.teacher_group_ids||[]).includes(parseInt(o.value)));
   toggleTeacherGroups('edit'); editModal.show();
 }
@@ -239,31 +278,11 @@ async function saveEdit(){
     study_status:editStudyStatus.value,
     role:editRole.value,
     group_id:editGroup.value?parseInt(editGroup.value):null,
-    is_monitor:editIsMonitor.checked,
     teacher_group_ids:selectedValues(editTeacherGroups)
   };
+  if(editPassword.value) payload.password=editPassword.value;
   const r=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
   if(!r.ok) return alert(d.detail||'Ошибка'); editModal.hide(); await loadAll();
-}
-
-function openPasswordModal(id){
-  pwdUserId.value=id;
-  pwdOld.value='';
-  pwdNew.value='';
-  passwordModal.show();
-}
-
-async function savePasswordChange(){
-  const userId=parseInt(pwdUserId.value);
-  const oldPassword=pwdOld.value;
-  const newPassword=pwdNew.value;
-  if(!oldPassword || !newPassword) return alert('Заполните старый и новый пароль');
-  const payload={user_id:userId, old_password:oldPassword, new_password:newPassword};
-  const r=await fetch(`/users/${userId}/password`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)});
-  const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка');
-  passwordModal.hide();
-  alert('Пароль изменен');
 }
 
 async function removeUser(id){
@@ -274,7 +293,16 @@ async function removeUser(id){
 
 document.addEventListener('DOMContentLoaded', ()=>{
   editModal=new bootstrap.Modal(document.getElementById('editModal'));
-  passwordModal=new bootstrap.Modal(document.getElementById('passwordModal'));
+  document.querySelectorAll('#usersTable thead th[data-sort]').forEach(th=>{
+    th.style.cursor='pointer';
+    th.addEventListener('click', ()=>{
+      const key=th.dataset.sort;
+      if(currentSort.key===key){ currentSort.dir=currentSort.dir==='asc'?'desc':'asc'; }
+      else { currentSort.key=key; currentSort.dir='asc'; }
+      renderUsers();
+    });
+  });
+  userSearch.addEventListener('input', renderUsers);
   loadAll();
 });
 </script>

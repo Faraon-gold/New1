@@ -408,6 +408,35 @@ def create_group(group: schemas.GroupCreate, current_user: models.User = Depends
     db.refresh(db_group)
     return schemas.Group(id=db_group.id, name=db_group.name)
 
+@app.delete("/groups/{group_id}")
+def delete_group(
+    group_id: int,
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    check_role_access(current_user, ["admin"])
+
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.name == "0":
+        raise HTTPException(status_code=400, detail="Default group cannot be deleted")
+
+    has_users = db.query(models.User).filter(models.User.group_id == group_id).first()
+    if has_users:
+        raise HTTPException(status_code=400, detail="Cannot delete group with users")
+
+    has_schedule = db.query(models.Schedule).filter(models.Schedule.group_id == group_id).first()
+    if has_schedule:
+        raise HTTPException(status_code=400, detail="Cannot delete group with schedule")
+
+    db.execute(models.group_subjects.delete().where(models.group_subjects.c.group_id == group_id))
+    db.execute(models.teacher_groups.delete().where(models.teacher_groups.c.group_id == group_id))
+    db.delete(group)
+    db.commit()
+    return {"message": "Group deleted"}
+
+
 
 @app.get("/subjects", response_model=List[schemas.Subject])
 def get_subjects(current_user: models.User = Depends(get_current_user_role), db: Session = Depends(database.get_db)):
@@ -505,6 +534,28 @@ def bind_group_subject(
         teacher_id=subject.teacher_id,
         teacher_name=teacher_name,
     )
+
+
+@app.delete("/group-subjects")
+def unbind_group_subject(
+    group_id: int = Query(...),
+    subject_id: int = Query(...),
+    current_user: models.User = Depends(get_current_user_role),
+    db: Session = Depends(database.get_db),
+):
+    check_role_access(current_user, ["admin"])
+
+    deleted = db.execute(
+        models.group_subjects.delete().where(
+            (models.group_subjects.c.group_id == group_id)
+            & (models.group_subjects.c.subject_id == subject_id)
+        )
+    )
+    if deleted.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Binding not found")
+
+    db.commit()
+    return {"message": "Binding removed"}
 
 
 @app.get("/schedule", response_model=List[schemas.Schedule])
