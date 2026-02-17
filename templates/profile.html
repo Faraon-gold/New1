@@ -6,14 +6,14 @@
     <title>Личный кабинет - Система учёта посещаемости</title>
     <style>
         body {font-family: Arial, sans-serif; background: linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%); min-height:100vh; padding:20px;}
-        .container {max-width: 800px; margin: 0 auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.1); padding:2rem;}
+        .container {max-width: 900px; margin: 0 auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.1); padding:2rem;}
         header {display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; padding-bottom:1rem; border-bottom:1px solid #eee;}
         .logo {font-size:1.5rem; font-weight:700; color:#2196F3;}
         .user-info {background:#f8f9fa; padding:1.5rem; border-radius:8px; margin-bottom:1.5rem;}
         .info-item {margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px solid #eee; display:flex; align-items:center; gap:.5rem;}
-        .info-label {font-weight:bold; color:#555; width:150px;}
+        .info-label {font-weight:bold; color:#555; width:220px;}
         .btn {background:linear-gradient(45deg,#2196F3,#21CBF3); color:#fff; padding:.65rem 1.2rem; border:none; border-radius:4px; cursor:pointer; text-decoration:none; display:inline-block;}
-        .btn-back {background:linear-gradient(45deg,#9e9e9e,#616161);} .btn-secondary{background:#6c757d;} .btn-warning{background:#f39c12;}
+        .btn-back {background: #FFDB58; color: #fff;} .btn-secondary{background:#6c757d;} .btn-warning{background:#f39c12;}
         .modal-backdrop {position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center;}
         .modal-box {background:#fff; border-radius:8px; width:100%; max-width:420px; padding:1rem 1.25rem;}
         .form-group {margin-bottom:.8rem;} .form-group label{display:block; margin-bottom:.3rem; font-weight:600;} .form-group input{width:100%; padding:.55rem; border:1px solid #ddd; border-radius:4px;}
@@ -24,7 +24,7 @@
 <div class="container">
     <header>
         <div class="logo">Система учёта посещаемости</div>
-        <a href="/app" class="btn btn-back">Назад</a>
+        <a href="/app" class="btn btn-back">На главную</a>
     </header>
 
     <h1>Личный кабинет</h1>
@@ -34,7 +34,13 @@
         <div class="info-item"><span class="info-label">Личный ID:</span><span id="personal-id">Загрузка...</span></div>
         <div class="info-item"><span class="info-label">Логин:</span><span id="login">Загрузка...</span></div>
         <div class="info-item"><span class="info-label">Роль:</span><span id="role">Загрузка...</span></div>
+        <div class="info-item"><span class="info-label">Email:</span><span id="email">Загрузка...</span></div>
         <div class="info-item"><span class="info-label">Группа:</span><span id="group">Загрузка...</span></div>
+        <div class="info-item"><span class="info-label">Факультет:</span><span id="faculty">Загрузка...</span></div>
+        <div class="info-item"><span class="info-label">Код направления:</span><span id="direction-code">Загрузка...</span></div>
+        <div class="info-item"><span class="info-label">Наименование направления:</span><span id="direction-name">Загрузка...</span></div>
+        <div class="info-item"><span class="info-label">Статус:</span><span id="study-status">Загрузка...</span></div>
+        <div class="info-item" id="teacher-groups-wrap" style="display:none;"><span class="info-label">Группы преподавателя:</span><span id="teacher-groups">—</span></div>
         <div class="info-item">
             <span class="info-label">Дата рождения:</span>
             <span id="birth-date">Не указана</span>
@@ -71,6 +77,7 @@
 
 <script>
 let currentUser = null;
+const statusMap = {studying:'Учится', inactive:'Неактивен'};
 
 function tokenOrRedirect(){
   const token = localStorage.getItem('access_token');
@@ -80,18 +87,68 @@ function tokenOrRedirect(){
 
 function showMessage(html){ document.getElementById('message').innerHTML = html; }
 
+function parseErrorDetail(detail){
+  if (!detail) return 'Произошла ошибка';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(item => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object') {
+        const field = Array.isArray(item.loc) ? item.loc.join('.') : '';
+        const msg = item.msg || JSON.stringify(item);
+        return field ? `${field}: ${msg}` : msg;
+      }
+      return String(item);
+    }).join('; ');
+  }
+  if (typeof detail === 'object') return detail.msg || JSON.stringify(detail);
+  return String(detail);
+}
+
+async function loadTeacherGroups(userData, token){
+  if (userData.role !== 'teacher') {
+    document.getElementById('teacher-groups-wrap').style.display='none';
+    return;
+  }
+  const ids = userData.teacher_group_ids || [];
+  if (!ids.length) {
+    document.getElementById('teacher-groups').textContent = 'Нет привязанных групп';
+    document.getElementById('teacher-groups-wrap').style.display='flex';
+    return;
+  }
+  try {
+    const groupsResp = await fetch('/groups', {headers:{'Authorization':`Bearer ${token}`}});
+    if (!groupsResp.ok) throw new Error('Не удалось загрузить группы преподавателя');
+    const groups = await groupsResp.json();
+    const groupNames = ids.map(id => groups.find(g => g.id === id)?.name || `ID: ${id}`);
+    document.getElementById('teacher-groups').textContent = groupNames.join(', ');
+    document.getElementById('teacher-groups-wrap').style.display='flex';
+  } catch (_) {
+    document.getElementById('teacher-groups').textContent = ids.map(id => `ID: ${id}`).join(', ');
+    document.getElementById('teacher-groups-wrap').style.display='flex';
+  }
+}
+
 async function loadUserProfile() {
   try {
     const token = tokenOrRedirect(); if(!token) return;
     const response = await fetch('/api/users/me', {headers:{'Authorization':`Bearer ${token}`}});
     if (!response.ok) { window.location.href='/login'; return; }
     currentUser = await response.json();
+
     document.getElementById('full-name').textContent = currentUser.full_name;
     document.getElementById('personal-id').textContent = currentUser.personal_id || '-';
     document.getElementById('login').textContent = currentUser.login;
     document.getElementById('role').textContent = currentUser.role;
+    document.getElementById('email').textContent = currentUser.email || 'Не указана';
     document.getElementById('group').textContent = currentUser.group_name || (currentUser.group_id ? `ID: ${currentUser.group_id}` : 'Не указана');
+    document.getElementById('faculty').textContent = currentUser.faculty || 'Не указан';
+    document.getElementById('direction-code').textContent = currentUser.direction_code || 'Не указан';
+    document.getElementById('direction-name').textContent = currentUser.direction_name || 'Не указано';
+    document.getElementById('study-status').textContent = statusMap[currentUser.study_status] || currentUser.study_status || 'Не указан';
     document.getElementById('birth-date').textContent = currentUser.birth_date || 'Не указана';
+
+    await loadTeacherGroups(currentUser, token);
   } catch (error) {
     window.location.href = '/login';
   }
@@ -112,7 +169,7 @@ async function saveBirthDate(){
       body: JSON.stringify({ birth_date: birthDate })
     });
     const result = await response.json();
-    if(!response.ok) throw new Error(result.detail || 'Ошибка сохранения даты рождения');
+    if(!response.ok) throw new Error(parseErrorDetail(result.detail));
     closeBirthModal();
     document.getElementById('birth-date').textContent = result.birth_date || 'Не указана';
     currentUser = result;
@@ -134,6 +191,7 @@ async function savePassword(){
   const oldPassword = document.getElementById('old-password').value;
   const newPassword = document.getElementById('new-password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
+  if (!oldPassword || !newPassword) return showMessage('<div class="error-message">Введите старый и новый пароль</div>');
   if (newPassword !== confirmPassword) return showMessage('<div class="error-message">Новые пароли не совпадают</div>');
   if (newPassword.length < 6) return showMessage('<div class="error-message">Новый пароль должен быть не менее 6 символов</div>');
   try {
@@ -143,7 +201,7 @@ async function savePassword(){
       body:JSON.stringify({old_password:oldPassword, new_password:newPassword})
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || 'Ошибка при смене пароля');
+    if (!response.ok) throw new Error(parseErrorDetail(result.detail));
     closePasswordModal();
     showMessage('<div class="success-message">Пароль успешно изменен!</div>');
   } catch (error) {
