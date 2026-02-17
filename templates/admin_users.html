@@ -27,7 +27,7 @@
       <div class="card-body row g-2">
         <div class="col-md-6"><input id="newSubjectName" class="form-control" placeholder="Название предмета"></div>
         <div class="col-md-4"><select id="newSubjectTeacher" class="form-select"></select></div>
-        <div class="col-md-2"><button class="btn btn-success w-100" onclick="createSubject()">Создать</button></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary w-100" onclick="createSubject()">Создать</button></div>
       </div>
     </div>
   </div>
@@ -56,7 +56,7 @@
 
       <div class="col-md-2"><select class="form-select" name="role" id="addRole" required><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
       <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
-      <div class="col-md-2"><button class="btn btn-primary" type="submit">Добавить</button></div>
+      <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Создать</button></div>
     </form>
   </div>
 </div>
@@ -67,7 +67,7 @@
     <div class="col-md-4"><select id="mapGroup" class="form-select"></select></div>
     <div class="col-md-4"><select id="mapSubject" class="form-select"></select></div>
     <div class="col-md-3"><select id="mapTeacher" class="form-select"></select></div>
-    <div class="col-md-1"><button class="btn btn-outline-primary w-100" onclick="bindGroupSubject()">OK</button></div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" onclick="bindGroupSubject()">Создать</button></div>
   </div>
   <div class="card-body pt-0"><div id="mappingList" class="small"></div></div>
 </div>
@@ -113,14 +113,67 @@
   </div></div>
 </div>
 
+
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Подтверждение</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" id="confirmModalText">Вы уверены?</div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+      <button type="button" class="btn btn-outline-primary" id="confirmModalOkBtn">Подтвердить</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="noticeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Сообщение</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" id="noticeModalText"></div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Ок</button></div>
+  </div></div>
+</div>
+
 <script>
 const token = localStorage.getItem('access_token');
 let users=[], groups=[], subjects=[], mappings=[];
-let editModal;
+let editModal, confirmModal, noticeModal;
 let currentSort={key:'id',dir:'asc'};
 const roleOptions=['student','monitor','teacher','dean','admin'];
 const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
+
+
+function showNotice(text){
+  noticeModalText.textContent = text;
+  noticeModal.show();
+}
+
+function askConfirm(text){
+  return new Promise(resolve => {
+    confirmModalText.textContent = text;
+    const okBtn = document.getElementById('confirmModalOkBtn');
+
+    const cleanup = () => {
+      okBtn.removeEventListener('click', onOk);
+      document.getElementById('confirmModal').removeEventListener('hidden.bs.modal', onHide);
+    };
+
+    const onOk = () => {
+      cleanup();
+      confirmModal.hide();
+      resolve(true);
+    };
+
+    const onHide = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    okBtn.addEventListener('click', onOk);
+    document.getElementById('confirmModal').addEventListener('hidden.bs.modal', onHide, { once: true });
+    confirmModal.show();
+  });
+}
 
 function groupNameById(id){return groups.find(g=>g.id===id)?.name||'-'}
 
@@ -164,7 +217,7 @@ function renderUsers(){
   filtered.forEach(u=>{
     const tr=document.createElement('tr');
     const direction = [u.direction_code||'', u.direction_name||''].filter(Boolean).join(' — ') || '-';
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-danger' onclick='removeUser(${u.id})'>Удалить</button></td>`;
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-outline-primary' onclick='removeUser(${u.id})'>Удалить</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -183,43 +236,43 @@ async function loadAll(){
     fetch('/subjects',{headers:authHeaders()}),
     fetch('/group-subjects',{headers:authHeaders()})
   ]);
-  if([u,g,s,m].some(r=>!r.ok)){ alert('Ошибка загрузки данных'); return; }
+  if([u,g,s,m].some(r=>!r.ok)){ showNotice('Ошибка загрузки данных'); return; }
   users=await u.json(); groups=await g.json(); subjects=await s.json(); mappings=await m.json();
   renderSelects(); renderGroups(); renderUsers(); renderMappings();
 }
 
 async function createGroup(){
-  const name=newGroupName.value.trim(); if(!name) return alert('Введите название группы');
+  const name=newGroupName.value.trim(); if(!name) return showNotice('Введите название группы');
   const r=await fetch('/groups',{method:'POST',headers:authHeaders(),body:JSON.stringify({name})}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); newGroupName.value=''; await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); newGroupName.value=''; await loadAll();
 }
 
 async function deleteGroup(id, name){
-  if(!confirm(`Удалить группу "${name}"?`)) return;
+  if(!await askConfirm(`Удалить группу "${name}"?`)) return;
   const r=await fetch(`/groups/${id}`,{method:'DELETE',headers:authHeaders()});
   const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка удаления группы');
+  if(!r.ok) return showNotice(d.detail||'Ошибка удаления группы');
   await loadAll();
 }
 
 async function createSubject(){
-  const name=newSubjectName.value.trim(); if(!name) return alert('Введите название предмета');
+  const name=newSubjectName.value.trim(); if(!name) return showNotice('Введите название предмета');
   const t=newSubjectTeacher.value; const payload={name, teacher_id:t?parseInt(t):null};
   const r=await fetch('/subjects',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); newSubjectName.value=''; await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); newSubjectName.value=''; await loadAll();
 }
 
 async function bindGroupSubject(){
   const payload={group_id:parseInt(mapGroup.value),subject_id:parseInt(mapSubject.value),teacher_id:mapTeacher.value?parseInt(mapTeacher.value):null};
   const r=await fetch('/group-subjects',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); await loadAll();
 }
 
 async function unbindGroupSubject(groupId, subjectId){
-  if(!confirm('Удалить привязку предмета к группе?')) return;
+  if(!await askConfirm('Удалить привязку предмета к группе?')) return;
   const r=await fetch(`/group-subjects?group_id=${groupId}&subject_id=${subjectId}`, {method:'DELETE', headers:authHeaders()});
   const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка удаления привязки');
+  if(!r.ok) return showNotice(d.detail||'Ошибка удаления привязки');
   await loadAll();
 }
 
@@ -241,7 +294,7 @@ addUserForm.addEventListener('submit', async (e)=>{
     group_id:f.group_id.value?parseInt(f.group_id.value):null
   };
   const r=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); f.reset(); await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); f.reset(); await loadAll();
 });
 
 function openEdit(id){
@@ -268,17 +321,19 @@ async function saveEdit(){
   };
   if(editPassword.value) payload.password=editPassword.value;
   const r=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); editModal.hide(); await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); editModal.hide(); await loadAll();
 }
 
 async function removeUser(id){
-  if(!confirm('Удалить пользователя?')) return;
+  if(!await askConfirm('Удалить пользователя?')) return;
   const r=await fetch(`/users/${id}`,{method:'DELETE',headers:authHeaders()}); const d=await r.json();
-  if(!r.ok) return alert(d.detail||'Ошибка'); await loadAll();
+  if(!r.ok) return showNotice(d.detail||'Ошибка'); await loadAll();
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
   editModal=new bootstrap.Modal(document.getElementById('editModal'));
+  confirmModal=new bootstrap.Modal(document.getElementById('confirmModal'));
+  noticeModal=new bootstrap.Modal(document.getElementById('noticeModal'));
   document.querySelectorAll('#usersTable thead th[data-sort]').forEach(th=>{
     th.style.cursor='pointer';
     th.addEventListener('click', ()=>{
