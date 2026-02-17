@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">Управление пользователями и группами</h2>
-  <a href="/app" class="btn btn-warning fw-bold">На главную</a>
+  <a href="/app" class="btn fw-bold" style="background:#F4A900;color:#fff;">На главную</a>
 </div>
 
 <div class="row g-3 mb-3">
@@ -54,9 +54,8 @@
         </select>
       </div>
 
-      <div class="col-md-2"><select class="form-select" name="role" id="addRole" required onchange="toggleTeacherGroups('add')"><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
+      <div class="col-md-2"><select class="form-select" name="role" id="addRole" required><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
       <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
-      <div class="col-md-3"><select class="form-select" name="teacher_group_ids" id="addTeacherGroups" multiple></select></div>
       <div class="col-md-2"><button class="btn btn-primary" type="submit">Добавить</button></div>
     </form>
   </div>
@@ -105,9 +104,8 @@
         <div class="col-8"><input id="editDirectionName" class="form-control" placeholder="Наименование направления"></div>
         <div class="col-6"><input id="editFaculty" class="form-control" placeholder="Факультет"></div>
         <div class="col-6"><select id="editStudyStatus" class="form-select"><option value="studying">Учится</option><option value="inactive">Неактивен</option></select></div>
-        <div class="col-6"><select id="editRole" class="form-select" onchange="toggleTeacherGroups('edit')"></select></div>
+        <div class="col-6"><select id="editRole" class="form-select"></select></div>
         <div class="col-6"><select id="editGroup" class="form-select"></select></div>
-        <div class="col-6"><select id="editTeacherGroups" class="form-select" multiple></select></div>
         <div class="col-6"><input id="editPassword" class="form-control" type="password" placeholder="Новый пароль (опционально)"></div>
       </form>
     </div>
@@ -125,19 +123,15 @@ const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
 function groupNameById(id){return groups.find(g=>g.id===id)?.name||'-'}
-function selectedValues(el){return Array.from(el.selectedOptions).map(o=>parseInt(o.value));}
 
 function renderSelects(){
   const groupOpts='<option value="">Без группы</option>'+groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
   addGroup.innerHTML=groupOpts; editGroup.innerHTML=groupOpts;
-  const teacherGroupOpts=groups.filter(g=>g.name!=='0').map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
-  addTeacherGroups.innerHTML=teacherGroupOpts; editTeacherGroups.innerHTML=teacherGroupOpts;
   editRole.innerHTML=roleOptions.map(r=>`<option value="${r}">${r}</option>`).join('');
   mapGroup.innerHTML=groups.filter(g=>g.name!=='0').map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
   mapSubject.innerHTML=subjects.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   const teacherOpts='<option value="">Без преподавателя</option>'+users.filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${t.full_name}</option>`).join('');
   mapTeacher.innerHTML=teacherOpts; newSubjectTeacher.innerHTML=teacherOpts;
-  toggleTeacherGroups('add'); toggleTeacherGroups('edit');
 }
 
 function renderGroups(){
@@ -194,11 +188,6 @@ async function loadAll(){
   renderSelects(); renderGroups(); renderUsers(); renderMappings();
 }
 
-function toggleTeacherGroups(prefix){
-  const role=document.getElementById(prefix==='add'?'addRole':'editRole').value;
-  document.getElementById(prefix==='add'?'addTeacherGroups':'editTeacherGroups').disabled=role!=='teacher';
-}
-
 async function createGroup(){
   const name=newGroupName.value.trim(); if(!name) return alert('Введите название группы');
   const r=await fetch('/groups',{method:'POST',headers:authHeaders(),body:JSON.stringify({name})}); const d=await r.json();
@@ -249,8 +238,7 @@ addUserForm.addEventListener('submit', async (e)=>{
     direction_name:f.direction_name.value||null,
     faculty:f.faculty.value||null,
     study_status:f.study_status.value,
-    group_id:f.group_id.value?parseInt(f.group_id.value):null,
-    teacher_group_ids:selectedValues(addTeacherGroups)
+    group_id:f.group_id.value?parseInt(f.group_id.value):null
   };
   const r=await fetch('/register',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();
   if(!r.ok) return alert(d.detail||'Ошибка'); f.reset(); await loadAll();
@@ -260,8 +248,7 @@ function openEdit(id){
   const u=users.find(x=>x.id===id); if(!u) return;
   editId.value=u.id; editFullName.value=u.full_name; editLogin.value=u.login; editPersonalId.value=u.personal_id||''; editEmail.value=u.email||''; editRole.value=u.role; editGroup.value=u.group_id||'';
   editBirthDate.value=u.birth_date||''; editDirectionCode.value=u.direction_code||''; editDirectionName.value=u.direction_name||''; editFaculty.value=u.faculty||''; editStudyStatus.value=u.study_status||'studying'; editPassword.value='';
-  Array.from(editTeacherGroups.options).forEach(o=>o.selected=(u.teacher_group_ids||[]).includes(parseInt(o.value)));
-  toggleTeacherGroups('edit'); editModal.show();
+  editModal.show();
 }
 
 async function saveEdit(){
@@ -277,8 +264,7 @@ async function saveEdit(){
     faculty:editFaculty.value||null,
     study_status:editStudyStatus.value,
     role:editRole.value,
-    group_id:editGroup.value?parseInt(editGroup.value):null,
-    teacher_group_ids:selectedValues(editTeacherGroups)
+    group_id:editGroup.value?parseInt(editGroup.value):null
   };
   if(editPassword.value) payload.password=editPassword.value;
   const r=await fetch(`/users/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(payload)}); const d=await r.json();

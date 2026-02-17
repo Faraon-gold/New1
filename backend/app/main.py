@@ -235,7 +235,7 @@ def api_login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.put("/users/{user_id}/password")
+@app.put("/users/{user_id}/password/change")
 def change_password(
     user_id: int,
     user_update: schemas.PasswordChange,
@@ -509,6 +509,15 @@ def bind_group_subject(
             raise HTTPException(status_code=404, detail="Teacher not found")
         subject.teacher_id = teacher.id
 
+        teacher_group_link = db.execute(
+            models.teacher_groups.select().where(
+                (models.teacher_groups.c.teacher_id == teacher.id)
+                & (models.teacher_groups.c.group_id == payload.group_id)
+            )
+        ).first()
+        if not teacher_group_link:
+            db.execute(models.teacher_groups.insert().values(teacher_id=teacher.id, group_id=payload.group_id))
+
     exists = db.execute(
         models.group_subjects.select().where(
             (models.group_subjects.c.group_id == payload.group_id)
@@ -553,6 +562,22 @@ def unbind_group_subject(
     )
     if deleted.rowcount == 0:
         raise HTTPException(status_code=404, detail="Binding not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if subject and subject.teacher_id:
+        remaining = db.query(models.Subject.id).join(
+            models.group_subjects, models.group_subjects.c.subject_id == models.Subject.id
+        ).filter(
+            models.Subject.teacher_id == subject.teacher_id,
+            models.group_subjects.c.group_id == group_id,
+        ).first()
+        if not remaining:
+            db.execute(
+                models.teacher_groups.delete().where(
+                    (models.teacher_groups.c.teacher_id == subject.teacher_id)
+                    & (models.teacher_groups.c.group_id == group_id)
+                )
+            )
 
     db.commit()
     return {"message": "Binding removed"}
