@@ -11,6 +11,7 @@
             </div>
             <div class="card-body">
                 <form id="loginForm">
+                    <div id="login-error" class="alert alert-danger d-none" role="alert"></div>
                     <div class="mb-3">
                         <label for="login" class="form-label">Логин:</label>
                         <input type="text" class="form-control" id="login" name="login" required>
@@ -31,6 +32,9 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     e.preventDefault();
     
     const formData = new FormData(e.target);
+    const err=document.getElementById('login-error');
+    err.classList.add('d-none');
+    err.textContent='';
     
     // Submit using JSON format to the backend app's api/login endpoint
     const response = await fetch('/api/login', {
@@ -65,7 +69,9 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         } catch (e) {
             // If parsing JSON fails, keep the default error message
         }
-        alert(errorMessage);
+        const err=document.getElementById('login-error');
+        err.textContent = errorMessage || 'Неверный логин или пароль';
+        err.classList.remove('d-none');
     }
 });
 </script>

@@ -3,6 +3,10 @@
 {% block title %}Управление пользователями и группами - {{ super() }}{% endblock %}
 
 {% block content %}
+<style>
+  .users-actions{display:flex; gap:.35rem; flex-wrap:wrap;}
+  .users-actions .btn{padding:.18rem .45rem; font-size:.72rem; line-height:1.1;}
+</style>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">Управление пользователями и группами</h2>
   <a href="/app" class="btn fw-bold" style="background:#F4A900;color:#fff;">На главную</a>
@@ -217,7 +221,7 @@ function renderUsers(){
   filtered.forEach(u=>{
     const tr=document.createElement('tr');
     const direction = [u.direction_code||'', u.direction_name||''].filter(Boolean).join(' — ') || '-';
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><button class='btn btn-sm btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button> <button class='btn btn-sm btn-outline-primary' onclick='removeUser(${u.id})'>Удалить</button></td>`;
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><div class='users-actions'><button class='btn btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button><button class='btn btn-outline-primary' onclick='removeUser(${u.id})'>Удалить</button></div></td>`;
     tbody.appendChild(tr);
   });
 }
