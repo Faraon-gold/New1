@@ -56,6 +56,8 @@ class User(Base):
     direction_name = Column(String(255), nullable=True)
     faculty = Column(String(255), nullable=True)
     study_status = Column(String(20), nullable=False, default="studying", server_default="studying")
+    stream_year = Column(String(16), nullable=True)
+    education_form = Column(String(64), nullable=True)
 
     group = relationship("Group", back_populates="students")
     attendances = relationship("Attendance", back_populates="student")

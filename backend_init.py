@@ -65,6 +65,10 @@ def ensure_schema_updates(engine) -> None:
                 connection.execute(text("ALTER TABLE users ADD COLUMN faculty VARCHAR(255)"))
             if "study_status" not in user_columns:
                 connection.execute(text("ALTER TABLE users ADD COLUMN study_status VARCHAR(20) NOT NULL DEFAULT 'studying'"))
+            if "stream_year" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN stream_year VARCHAR(16)"))
+            if "education_form" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN education_form VARCHAR(64)"))
 
             if dialect == "postgresql":
                 connection.execute(text("UPDATE users SET personal_id = 'U-' || id::text WHERE personal_id IS NULL OR personal_id = ''"))

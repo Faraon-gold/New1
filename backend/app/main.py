@@ -98,6 +98,8 @@ def serialize_user(user: models.User) -> schemas.User:
         direction_name=user.direction_name,
         faculty=user.faculty,
         study_status=user.study_status,
+        stream_year=user.stream_year,
+        education_form=user.education_form,
         teacher_group_ids=teacher_group_ids,
     )
 
@@ -188,6 +190,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
         direction_name=user.direction_name,
         faculty=user.faculty,
         study_status=user.study_status,
+        stream_year=user.stream_year,
+        education_form=user.education_form,
         personal_id=(user.personal_id or f"U-{uuid.uuid4().hex[:10]}"),
     )
     db.add(db_user)
@@ -211,7 +215,7 @@ class LoginRequest(BaseModel):
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.login == form_data.username).first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        raise HTTPException(status_code=400, detail="Неверный логин или пароль")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.login, "role": user.role}, expires_delta=access_token_expires
@@ -227,7 +231,7 @@ def api_login(
     """Login endpoint that accepts JSON data"""
     user = db.query(models.User).filter(models.User.login == login_request.login).first()
     if not user or not auth.verify_password(login_request.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        raise HTTPException(status_code=400, detail="Неверный логин или пароль")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.login, "role": user.role}, expires_delta=access_token_expires
@@ -249,7 +253,7 @@ def change_password(
         raise HTTPException(status_code=403, detail="Access denied")
 
     if not auth.verify_password(user_update.old_password, current_user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect old password")
+        raise HTTPException(status_code=400, detail="Неверный старый пароль")
 
     target_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not target_user:
@@ -269,7 +273,7 @@ def change_own_password(
 ):
     # Verify old password
     if not auth.verify_password(password_change.old_password, current_user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect old password")
+        raise HTTPException(status_code=400, detail="Неверный старый пароль")
     
     # Update password
     current_user.password_hash = auth.hash_password(password_change.new_password)
@@ -360,6 +364,10 @@ def update_user(
         if user_update.study_status not in VALID_STUDY_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid study status")
         db_user.study_status = user_update.study_status
+    if user_update.stream_year is not None:
+        db_user.stream_year = user_update.stream_year
+    if user_update.education_form is not None:
+        db_user.education_form = user_update.education_form
     if user_update.personal_id is not None:
         pid_exists = db.query(models.User).filter(models.User.personal_id == user_update.personal_id, models.User.id != user_id).first()
         if pid_exists:

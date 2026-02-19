@@ -25,6 +25,8 @@ class UserBase(BaseModel):
     direction_name: Optional[str] = None
     faculty: Optional[str] = None
     study_status: str = "studying"
+    stream_year: Optional[str] = None
+    education_form: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -47,6 +49,8 @@ class UserUpdate(BaseModel):
     direction_name: Optional[str] = None
     faculty: Optional[str] = None
     study_status: Optional[str] = None
+    stream_year: Optional[str] = None
+    education_form: Optional[str] = None
     teacher_group_ids: Optional[List[int]] = None
 
 
@@ -69,6 +73,8 @@ class User(BaseModel):
     direction_name: Optional[str] = None
     faculty: Optional[str] = None
     study_status: str = "studying"
+    stream_year: Optional[str] = None
+    education_form: Optional[str] = None
     teacher_group_ids: List[int] = []
 
     class Config:

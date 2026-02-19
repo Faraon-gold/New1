@@ -42,6 +42,8 @@ def ensure_compatible_schema() -> None:
         direction_name_ddl = "ALTER TABLE users ADD COLUMN direction_name VARCHAR(255)"
         faculty_ddl = "ALTER TABLE users ADD COLUMN faculty VARCHAR(255)"
         study_status_ddl = "ALTER TABLE users ADD COLUMN study_status VARCHAR(20) NOT NULL DEFAULT 'studying'"
+        stream_year_ddl = "ALTER TABLE users ADD COLUMN stream_year VARCHAR(16)"
+        education_form_ddl = "ALTER TABLE users ADD COLUMN education_form VARCHAR(64)"
 
         _add_column_if_missing(inspector, "users", "is_monitor", user_monitor_ddl)
         _add_column_if_missing(inspector, "subjects", "teacher_id", subject_teacher_ddl)
@@ -52,6 +54,8 @@ def ensure_compatible_schema() -> None:
         _add_column_if_missing(inspector, "users", "direction_name", direction_name_ddl)
         _add_column_if_missing(inspector, "users", "faculty", faculty_ddl)
         _add_column_if_missing(inspector, "users", "study_status", study_status_ddl)
+        _add_column_if_missing(inspector, "users", "stream_year", stream_year_ddl)
+        _add_column_if_missing(inspector, "users", "education_form", education_form_ddl)
 
         if "group_subjects" not in inspector.get_table_names() and "groups" in inspector.get_table_names() and "subjects" in inspector.get_table_names():
             with engine.begin() as connection:

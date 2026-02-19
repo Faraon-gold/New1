@@ -55,8 +55,7 @@ async function loadProfile() {
     }
 
     const user = await response.json();
-    const monitorText = user.role === 'student' && user.is_monitor ? ' (староста)' : '';
-    document.getElementById('welcome-text').textContent = `Вы вошли как: ${user.full_name} — ${user.role}${monitorText}`;
+    document.getElementById('welcome-text').textContent = `Добро пожаловать, ${user.full_name}!`;
 
     if (user.role === 'admin') {
         document.getElementById('admin-management-btn').classList.remove('hidden');
