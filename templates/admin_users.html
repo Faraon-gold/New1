@@ -58,7 +58,7 @@
         </select>
       </div>
       <div class="col-md-2"><input class="form-control" name="stream_year" placeholder="Год потока"></div>
-      <div class="col-md-3"><input class="form-control" name="education_form" placeholder="Форма обучения"></div>
+      <div class="col-md-3"><select class="form-select" name="education_form"><option value="">Форма обучения</option><option value="очная">Очная</option><option value="заочная">Заочная</option><option value="очно-заочная">Очно-заочная</option></select></div>
 
       <div class="col-md-2"><select class="form-select" name="role" id="addRole" required><option value="student">Студент</option><option value="monitor">Староста</option><option value="teacher">Преподаватель</option><option value="dean">Деканат</option><option value="admin">Админ</option></select></div>
       <div class="col-md-3"><select class="form-select" name="group_id" id="addGroup"></select></div>
@@ -87,7 +87,7 @@
     <table class="table table-striped" id="usersTable">
       <thead>
         <tr>
-          <th data-sort="id">DB ID ↕</th><th data-sort="personal_id">Личный ID ↕</th><th data-sort="full_name">ФИО ↕</th><th data-sort="login">Логин ↕</th><th data-sort="email">Email ↕</th><th data-sort="birth_date">Дата рождения ↕</th><th data-sort="direction">Направление ↕</th><th data-sort="faculty">Факультет ↕</th><th data-sort="study_status">Статус ↕</th><th data-sort="stream_year">Год потока ↕</th><th data-sort="education_form">Форма обучения ↕</th><th data-sort="role">Роль ↕</th><th data-sort="group">Группа ↕</th><th>Группы преподавателя</th><th></th>
+          <th data-sort="id">DB ID ↕</th><th data-sort="personal_id">Личный ID ↕</th><th data-sort="full_name">ФИО ↕</th><th data-sort="login">Логин ↕</th><th data-sort="email">Email ↕</th><th data-sort="faculty">Факультет ↕</th><th data-sort="study_status">Статус ↕</th><th data-sort="role">Роль ↕</th><th data-sort="group">Группа ↕</th><th>Группы преподавателя</th><th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -111,7 +111,7 @@
         <div class="col-6"><input id="editFaculty" class="form-control" placeholder="Факультет"></div>
         <div class="col-6"><select id="editStudyStatus" class="form-select"><option value="studying">Учится</option><option value="inactive">Неактивен</option></select></div>
         <div class="col-6"><input id="editStreamYear" class="form-control" placeholder="Год потока"></div>
-        <div class="col-6"><input id="editEducationForm" class="form-control" placeholder="Форма обучения"></div>
+        <div class="col-6"><select id="editEducationForm" class="form-select"><option value="">Форма обучения</option><option value="очная">Очная</option><option value="заочная">Заочная</option><option value="очно-заочная">Очно-заочная</option></select></div>
         <div class="col-6"><select id="editRole" class="form-select"></select></div>
         <div class="col-6"><select id="editGroup" class="form-select"></select></div>
         <div class="col-6"><input id="editPassword" class="form-control" type="password" placeholder="Новый пароль (опционально)"></div>
@@ -224,8 +224,7 @@ function renderUsers(){
   tbody.innerHTML='';
   filtered.forEach(u=>{
     const tr=document.createElement('tr');
-    const direction = [u.direction_code||'', u.direction_name||''].filter(Boolean).join(' — ') || '-';
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.birth_date||'-'}</td><td>${direction}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.stream_year||'-'}</td><td>${u.education_form||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><div class='users-actions'><button class='btn btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button><button class='btn btn-outline-danger' onclick='removeUser(${u.id})'>Удалить</button></div></td>`;
+    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><div class='users-actions'><button class='btn btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button><button class='btn btn-outline-danger' onclick='removeUser(${u.id})'>Удалить</button></div></td>`;
     tbody.appendChild(tr);
   });
 }

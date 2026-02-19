@@ -216,6 +216,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(models.User).filter(models.User.login == form_data.username).first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
+    if user.study_status == "inactive":
+        raise HTTPException(status_code=403, detail="Пользователь неактивен. Вход запрещен")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.login, "role": user.role}, expires_delta=access_token_expires
@@ -232,6 +234,8 @@ def api_login(
     user = db.query(models.User).filter(models.User.login == login_request.login).first()
     if not user or not auth.verify_password(login_request.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
+    if user.study_status == "inactive":
+        raise HTTPException(status_code=403, detail="Пользователь неактивен. Вход запрещен")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.login, "role": user.role}, expires_delta=access_token_expires
