@@ -28,10 +28,13 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header"><h6 class="mb-0">Создать предмет</h6></div>
-      <div class="card-body row g-2">
+      <div class="card-body row g-2 align-items-end">
         <div class="col-md-6"><input id="newSubjectName" class="form-control" placeholder="Название предмета"></div>
         <div class="col-md-4"><select id="newSubjectTeacher" class="form-select"></select></div>
         <div class="col-md-2"><button class="btn btn-outline-primary w-100" onclick="createSubject()">Создать</button></div>
+        <div class="col-12 mt-2">
+          <button class="btn btn-outline-primary" onclick="scheduleSyncPlaceholder()">Синхронизация расписания</button>
+        </div>
       </div>
     </div>
   </div>
@@ -75,7 +78,15 @@
     <div class="col-md-3"><select id="mapTeacher" class="form-select"></select></div>
     <div class="col-md-1"><button class="btn btn-outline-primary w-100" onclick="bindGroupSubject()">Создать</button></div>
   </div>
-  <div class="card-body pt-0"><div id="mappingList" class="small"></div></div>
+  <div class="card-body pt-0">
+    <input id="mappingSearch" class="form-control mb-2" placeholder="Поиск по привязкам: группа, предмет, преподаватель">
+    <div class="table-responsive">
+      <table class="table table-striped table-sm" id="mappingTable">
+        <thead><tr><th>№</th><th>Группа</th><th>Предмет</th><th>Преподаватель</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div class="card">
@@ -87,7 +98,7 @@
     <table class="table table-striped" id="usersTable">
       <thead>
         <tr>
-          <th data-sort="id">DB ID ↕</th><th data-sort="personal_id">Личный ID ↕</th><th data-sort="full_name">ФИО ↕</th><th data-sort="login">Логин ↕</th><th data-sort="email">Email ↕</th><th data-sort="faculty">Факультет ↕</th><th data-sort="study_status">Статус ↕</th><th data-sort="role">Роль ↕</th><th data-sort="group">Группа ↕</th><th>Группы преподавателя</th><th></th>
+          <th>№</th><th data-sort="id">DB ID ↕</th><th data-sort="personal_id">Личный ID ↕</th><th data-sort="full_name">ФИО ↕</th><th data-sort="login">Логин ↕</th><th data-sort="email">Email ↕</th><th data-sort="faculty">Факультет ↕</th><th data-sort="study_status">Статус ↕</th><th data-sort="role">Роль ↕</th><th data-sort="group">Группа ↕</th><th>Группы преподавателя</th><th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -121,7 +132,6 @@
   </div></div>
 </div>
 
-
 <div class="modal fade" id="confirmModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Подтверждение</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -150,35 +160,22 @@ const roleOptions=['student','monitor','teacher','dean','admin'];
 const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
-
-function showNotice(text){
-  noticeModalText.textContent = text;
-  noticeModal.show();
-}
-
+function showNotice(text){ noticeModalText.textContent = text; noticeModal.show(); }
+function scheduleSyncPlaceholder(){ showNotice('Заглушка: синхронизация расписания будет доступна в следующих версиях.'); }
 function askConfirm(text){
   return new Promise(resolve => {
     confirmModalText.textContent = text;
     const okBtn = document.getElementById('confirmModalOkBtn');
-
+    const modalEl = document.getElementById('confirmModal');
+    let decided = false;
+    const onOk = () => { decided=true; cleanup(); confirmModal.hide(); resolve(true); };
+    const onHide = () => { if(!decided){ cleanup(); resolve(false);} };
     const cleanup = () => {
       okBtn.removeEventListener('click', onOk);
-      document.getElementById('confirmModal').removeEventListener('hidden.bs.modal', onHide);
+      modalEl.removeEventListener('hidden.bs.modal', onHide);
     };
-
-    const onOk = () => {
-      cleanup();
-      confirmModal.hide();
-      resolve(true);
-    };
-
-    const onHide = () => {
-      cleanup();
-      resolve(false);
-    };
-
     okBtn.addEventListener('click', onOk);
-    document.getElementById('confirmModal').addEventListener('hidden.bs.modal', onHide, { once: true });
+    modalEl.addEventListener('hidden.bs.modal', onHide, { once: true });
     confirmModal.show();
   });
 }
@@ -202,7 +199,6 @@ function renderGroups(){
 
 function sortValue(u,key){
   if(key==='group') return (u.group_name||groupNameById(u.group_id)||'').toLowerCase();
-  if(key==='direction') return `${u.direction_code||''} ${u.direction_name||''}`.toLowerCase();
   const v=u[key];
   return v===null||v===undefined ? '' : String(v).toLowerCase();
 }
@@ -222,17 +218,26 @@ function renderUsers(){
   });
 
   tbody.innerHTML='';
-  filtered.forEach(u=>{
+  filtered.forEach((u,idx)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><div class='users-actions'><button class='btn btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button><button class='btn btn-outline-danger' onclick='removeUser(${u.id})'>Удалить</button></div></td>`;
+    tr.innerHTML=`<td>${idx+1}</td><td>${u.id}</td><td>${u.personal_id||'-'}</td><td>${u.full_name}</td><td>${u.login}</td><td>${u.email||'-'}</td><td>${u.faculty||'-'}</td><td>${statusMap[u.study_status]||u.study_status||'-'}</td><td>${u.role}</td><td>${u.group_name||groupNameById(u.group_id)}</td><td>${(u.teacher_group_ids||[]).map(id=>groupNameById(id)).join(', ')||'-'}</td><td><div class='users-actions'><button class='btn btn-outline-primary' onclick='openEdit(${u.id})'>Изменить</button><button class='btn btn-outline-danger' onclick='removeUser(${u.id})'>Удалить</button></div></td>`;
     tbody.appendChild(tr);
   });
 }
 
 function renderMappings(){
-  mappingList.innerHTML = mappings.length
-    ? mappings.map(x=>`<div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1"><span>${x.group_name} — ${x.subject_name} — ${x.teacher_name||'-'}</span><button class="btn btn-sm btn-outline-danger" onclick="unbindGroupSubject(${x.group_id}, ${x.subject_id})">Удалить привязку</button></div>`).join('')
-    : '<span class="text-muted">Пока нет привязок</span>';
+  const tbody=document.querySelector('#mappingTable tbody');
+  const q=(mappingSearch.value||'').toLowerCase().trim();
+  const rows=mappings.filter(x=>{
+    const hay=[x.group_name,x.subject_name,x.teacher_name||''].join(' ').toLowerCase();
+    return !q || hay.includes(q);
+  });
+  tbody.innerHTML='';
+  rows.forEach((x,idx)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${idx+1}</td><td>${x.group_name}</td><td>${x.subject_name}</td><td>${x.teacher_name||'-'}</td><td><button class='btn btn-sm btn-outline-danger' onclick='unbindGroupSubject(${x.group_id}, ${x.subject_id})'>Удалить</button></td>`;
+    tbody.appendChild(tr);
+  });
 }
 
 async function loadAll(){
@@ -355,6 +360,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
   userSearch.addEventListener('input', renderUsers);
+  mappingSearch.addEventListener('input', renderMappings);
   loadAll();
 });
 </script>
