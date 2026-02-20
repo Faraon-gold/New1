@@ -7,9 +7,12 @@
   .users-actions{display:flex; gap:.35rem; flex-wrap:wrap;}
   .users-actions .btn{padding:.18rem .45rem; font-size:.72rem; line-height:1.1;}
 </style>
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
   <h2 class="mb-0">Управление пользователями и группами</h2>
-  <a href="/app" class="btn fw-bold" style="background:#F4A900;color:#fff;">На главную</a>
+  <div class="d-flex gap-2 align-items-center">
+    <button class="btn btn-outline-primary" onclick="downloadScheduleRecognitionJson()">Синхронизация с таблицей</button>
+    <a href="/app" class="btn fw-bold" style="background:#F4A900;color:#fff;">На главную</a>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -32,9 +35,6 @@
         <div class="col-md-6"><input id="newSubjectName" class="form-control" placeholder="Название предмета"></div>
         <div class="col-md-4"><select id="newSubjectTeacher" class="form-select"></select></div>
         <div class="col-md-2"><button class="btn btn-outline-primary w-100" onclick="createSubject()">Создать</button></div>
-        <div class="col-12 mt-2">
-          <button class="btn btn-outline-primary" onclick="scheduleSyncPlaceholder()">Синхронизация расписания</button>
-        </div>
       </div>
     </div>
   </div>
@@ -161,7 +161,21 @@ const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
 function showNotice(text){ noticeModalText.textContent = text; noticeModal.show(); }
-function scheduleSyncPlaceholder(){ showNotice('Заглушка: синхронизация расписания будет доступна в следующих версиях.'); }
+async function downloadScheduleRecognitionJson(){
+  const r=await fetch('/sync-schedule/recognize',{headers:authHeaders()});
+  const data=await r.json();
+  if(!r.ok) return showNotice(data.detail||'Ошибка синхронизации с таблицей');
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='schedule_entities_recognition.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showNotice('JSON файл с распознанными предметами и преподавателями скачан.');
+}
 function askConfirm(text){
   return new Promise(resolve => {
     confirmModalText.textContent = text;
