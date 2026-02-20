@@ -10,6 +10,8 @@
     .btn{display:inline-block;background:#1f6feb;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;border:0;cursor:pointer}
     .btn.gray{background:#6b7280}
     .btn.subjects{background:#F4A900}
+    .btn.outline{background:transparent;color:#1f6feb;border:1px solid #1f6feb}
+    .btn.outline:hover{background:#eff6ff}
     .controls{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}
     input[type="date"]{padding:10px;border:1px solid #d0d7de;border-radius:8px}
     input[type="time"]{padding:10px;border:1px solid #d0d7de;border-radius:8px}
@@ -24,6 +26,9 @@
     .mini{border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer}
     .mini.on.present{background:#dcfce7;border-color:#16a34a}
     .mini.on.absent{background:#fee2e2;border-color:#dc2626}
+    .status-only{font-size:18px;line-height:1;cursor:pointer;border:1px solid #d0d7de;border-radius:6px;background:#fff;padding:4px 8px}
+    .status-only.present{color:#16a34a}
+    .status-only.absent{color:#dc2626}
   </style>
 </head>
 <body>
@@ -35,7 +40,7 @@
   <div class="controls">
     <input type="date" id="newDate">
     <input type="time" id="newTime" value="09:00">
-    <button class="btn" onclick="addDateSession()">Добавить день занятия</button>
+    <button class="btn outline" onclick="addDateSession()">Добавить занятие</button>
     <button class="btn gray" onclick="downloadDataExcel()">Скачать данные</button>
   </div>
 
@@ -50,11 +55,18 @@ const groupId = {{ group_id }};
 const token = localStorage.getItem('access_token');
 const authHeaders = () => ({ 'Authorization': `Bearer ${token}` });
 let matrixData = null;
+let editingCellKey = null;
 
 function icon(status){
   if(status === 'present') return '✅';
   if(status === 'absent') return '❌';
   return '—';
+}
+
+function exportStatus(status){
+  if(status === 'present') return '+';
+  if(status === 'absent') return 'Н';
+  return '';
 }
 
 function formatDateRu(dateValue){
@@ -72,6 +84,55 @@ function formatHeaderDate(dateValue, timeValue){
   return `${formattedDate}<br><span class="muted">${timeValue}</span>`;
 }
 
+function cellKey(scheduleId, userId){
+  return `${scheduleId}:${userId}`;
+}
+
+function openCellEditor(scheduleId, userId){
+  editingCellKey = cellKey(scheduleId, userId);
+  renderMatrixTable();
+}
+
+function renderAttendanceCell(scheduleId, userId, status){
+  const key = cellKey(scheduleId, userId);
+  const isEditing = editingCellKey === key;
+
+  if(!status || isEditing){
+    return `<div class="mark">
+      <button class="mini present ${status==='present'?'on':''}" onclick="mark(${scheduleId}, ${userId}, 'present')">✓</button>
+      <button class="mini absent ${status==='absent'?'on':''}" onclick="mark(${scheduleId}, ${userId}, 'absent')">✗</button>
+    </div>`;
+  }
+
+  return `<button class="status-only ${status}" title="Нажмите, чтобы изменить" onclick="openCellEditor(${scheduleId}, ${userId})">${icon(status)}</button>`;
+}
+
+function renderMatrixTable(){
+  if(!matrixData){
+    return;
+  }
+
+  const dates = matrixData.dates;
+  const students = matrixData.students;
+
+  let html = '<thead><tr><th class="col-index">№</th><th class="col-student">Студенты группы</th>' +
+    dates.map(d => `<th>${formatHeaderDate(d.date, d.time)}</th>`).join('') + '</tr></thead><tbody>';
+
+  for(let idx=0; idx<students.length; idx++){
+    const st = students[idx];
+    const monitorBadge = st.is_monitor ? '<span class="badge monitor">Староста</span>' : '';
+    html += `<tr><td class="col-index">${idx + 1}</td><td class="col-student">${st.full_name} ${monitorBadge}</td>`;
+    for(const d of dates){
+      const status = st.attendance[String(d.schedule_id)] || null;
+      html += `<td>${renderAttendanceCell(d.schedule_id, st.id, status)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody>';
+  document.getElementById('matrixTable').innerHTML = html;
+}
+
 function downloadDataExcel(){
   if(!matrixData || !matrixData.students || !matrixData.dates){
     alert('Нет данных для скачивания');
@@ -82,7 +143,7 @@ function downloadDataExcel(){
   let excelTable = '<table border="1"><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
 
   matrixData.students.forEach((st, idx) => {
-    const row = [String(idx + 1), st.full_name, ...matrixData.dates.map(d => st.attendance[String(d.schedule_id)] || '')];
+    const row = [String(idx + 1), st.full_name, ...matrixData.dates.map(d => exportStatus(st.attendance[String(d.schedule_id)] || null))];
     excelTable += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
   });
   excelTable += '</table>';
@@ -108,34 +169,10 @@ async function loadMatrix(){
   }
 
   matrixData = await res.json();
+  editingCellKey = null;
   document.getElementById('title').textContent = `Посещаемость: ${matrixData.subject.name}`;
   document.getElementById('subtitle').textContent = `Группа: ${matrixData.group.name}`;
-
-  const dates = matrixData.dates;
-  const students = matrixData.students;
-
-  let html = '<thead><tr><th class="col-index">№</th><th class="col-student">Студенты группы</th>' +
-    dates.map(d => `<th>${formatHeaderDate(d.date, d.time)}</th>`).join('') + '</tr></thead><tbody>';
-
-  for(let idx=0; idx<students.length; idx++){
-    const st = students[idx];
-    const monitorBadge = st.is_monitor ? '<span class="badge monitor">Староста</span>' : '';
-    html += `<tr><td class="col-index">${idx + 1}</td><td class="col-student">${st.full_name} ${monitorBadge}</td>`;
-    for(const d of dates){
-      const status = st.attendance[String(d.schedule_id)] || null;
-      html += `<td>
-        <div class="mark">
-          <button class="mini present ${status==='present'?'on':''}" onclick="mark(${d.schedule_id}, ${st.id}, 'present')">✓</button>
-          <button class="mini absent ${status==='absent'?'on':''}" onclick="mark(${d.schedule_id}, ${st.id}, 'absent')">✗</button>
-        </div>
-        <div class="muted">${icon(status)}</div>
-      </td>`;
-    }
-    html += '</tr>';
-  }
-
-  html += '</tbody>';
-  document.getElementById('matrixTable').innerHTML = html;
+  renderMatrixTable();
 }
 
 async function addDateSession(){
