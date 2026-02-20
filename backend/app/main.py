@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from . import models, schemas, auth, database
 from .google_sheets import GoogleSheetsSync
-from datetime import timedelta, date, time
+from datetime import timedelta, date, time, datetime
 from typing import List
 import os
 import re
@@ -823,7 +823,7 @@ def get_subject_attendance_matrix(
     schedules = (
         db.query(models.Schedule)
         .filter(models.Schedule.subject_id == subject_id, models.Schedule.group_id == group_id)
-        .order_by(models.Schedule.date.asc())
+        .order_by(models.Schedule.date.asc(), models.Schedule.start_time.asc(), models.Schedule.id.asc())
         .all()
     )
 
@@ -848,7 +848,14 @@ def get_subject_attendance_matrix(
     return {
         "subject": {"id": subject.id, "name": subject.name},
         "group": {"id": group.id, "name": group.name},
-        "dates": [{"schedule_id": sch.id, "date": sch.date.isoformat()} for sch in schedules],
+        "dates": [
+            {
+                "schedule_id": sch.id,
+                "date": sch.date.isoformat(),
+                "time": sch.start_time.strftime("%H:%M") if sch.start_time else None,
+            }
+            for sch in schedules
+        ],
         "students": [
             {
                 "id": st.id,
@@ -868,6 +875,7 @@ def add_subject_session(
     subject_id: int,
     group_id: int = Query(..., description="Group ID"),
     session_date: date = Query(..., description="Session date"),
+    session_time: str | None = Query(None, description="Session time HH:MM"),
     current_user: models.User = Depends(get_current_user_role),
     db: Session = Depends(database.get_db),
 ):
@@ -877,17 +885,12 @@ def add_subject_session(
     if is_monitor_actor(current_user) and session_date < date.today():
         raise HTTPException(status_code=403, detail="Monitor cannot add past sessions")
 
-    exists = (
-        db.query(models.Schedule)
-        .filter(
-            models.Schedule.subject_id == subject_id,
-            models.Schedule.group_id == group_id,
-            models.Schedule.date == session_date,
-        )
-        .first()
-    )
-    if exists:
-        return {"message": "Session already exists", "schedule_id": exists.id}
+    parsed_time = None
+    if session_time:
+        try:
+            parsed_time = datetime.strptime(session_time, "%H:%M").time()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="session_time must be in HH:MM format")
 
     template_schedule = (
         db.query(models.Schedule)
@@ -900,11 +903,26 @@ def add_subject_session(
     default_end = template_schedule.end_time if template_schedule and template_schedule.end_time else time(10, 30)
     default_teacher_id = template_schedule.teacher_id if template_schedule else None
 
+    effective_start = parsed_time or default_start
+
+    exists = (
+        db.query(models.Schedule)
+        .filter(
+            models.Schedule.subject_id == subject_id,
+            models.Schedule.group_id == group_id,
+            models.Schedule.date == session_date,
+            models.Schedule.start_time == effective_start,
+        )
+        .first()
+    )
+    if exists:
+        return {"message": "Session already exists", "schedule_id": exists.id}
+
     schedule = models.Schedule(
         subject_id=subject_id,
         group_id=group_id,
         date=session_date,
-        start_time=default_start,
+        start_time=effective_start,
         end_time=default_end,
         teacher_id=default_teacher_id,
     )
