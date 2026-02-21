@@ -1009,8 +1009,18 @@ def _is_group_value(value: str) -> bool:
 
 
 def _normalize_main_value(value: str) -> str:
-    # remove trailing auditorium markers like: "478", "478.", "402П", "?"
-    cleaned = re.sub(r"\s+(\?|\d+[A-Za-zА-Яа-яЁё]?)\.?\s*$", "", value).strip()
+    cleaned = value.replace("?", "")
+    cleaned = " ".join(cleaned.split()).strip()
+
+    # remove trailing distance/auditorium markers repeatedly
+    while cleaned:
+        updated = re.sub(r"\s*(?:\((?:дистант|дистанционно)\)|дистант|дистанционно)\s*$", "", cleaned, flags=re.IGNORECASE)
+        updated = re.sub(r"\s+\d+[A-Za-zА-Яа-яЁё]?\.?\s*$", "", updated)
+        updated = " ".join(updated.split()).strip()
+        if updated == cleaned:
+            break
+        cleaned = updated
+
     return cleaned
 
 
@@ -1033,6 +1043,8 @@ def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[st
                 continue
             if ":" in value:
                 continue
+            if "поток" in value.lower():
+                continue
 
             if _is_group_value(value):
                 if value in seen_group:
@@ -1044,7 +1056,7 @@ def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[st
             normalized_value = _normalize_main_value(value)
             if not normalized_value:
                 continue
-            if normalized_value.isdigit():
+            if re.fullmatch(r"\d+[A-Za-zА-Яа-яЁё]?\.?", normalized_value):
                 continue
             if normalized_value in seen_main:
                 continue
