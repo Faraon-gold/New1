@@ -1000,7 +1000,8 @@ def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
     csv_url = GOOGLE_SHEET_URL.split("/edit")[0] + "/export?format=csv&gid=1653075363"
     response = requests.get(csv_url, timeout=25)
     response.raise_for_status()
-    return list(csv.reader(io.StringIO(response.text)))
+    csv_text = response.content.decode("utf-8-sig", errors="replace")
+    return list(csv.reader(io.StringIO(csv_text)))
 
 
 def _collect_unique_values_from_c_column(rows: List[List[str]]) -> List[str]:

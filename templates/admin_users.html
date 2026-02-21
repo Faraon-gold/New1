@@ -6,8 +6,6 @@
 <style>
   .users-actions{display:flex; gap:.35rem; flex-wrap:wrap;}
   .users-actions .btn{padding:.18rem .45rem; font-size:.72rem; line-height:1.1;}
-  .dark-notice{position:fixed;right:20px;bottom:20px;z-index:2000;background:#111;color:#fff;padding:12px 14px;border-radius:10px;max-width:min(560px,90vw);box-shadow:0 8px 24px rgba(0,0,0,.35);display:none;white-space:pre-wrap;font-size:.9rem;line-height:1.35}
-  .dark-notice.show{display:block}
 </style>
 <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
   <h2 class="mb-0">Управление пользователями и группами</h2>
@@ -153,8 +151,6 @@
   </div></div>
 </div>
 
-<div id="darkNotice" class="dark-notice"></div>
-
 <script>
 const token = localStorage.getItem('access_token');
 let users=[], groups=[], subjects=[], mappings=[];
@@ -165,21 +161,20 @@ const statusMap={studying:'Учится', inactive:'Неактивен'};
 const authHeaders=()=>({'Content-Type':'application/json','Authorization':`Bearer ${token}`});
 
 function showNotice(text){ noticeModalText.textContent = text; noticeModal.show(); }
-function showDarkNotice(lines){
-  const box=document.getElementById('darkNotice');
-  box.textContent=Array.isArray(lines)?lines.join('\n'):String(lines||'');
-  box.classList.add('show');
-  clearTimeout(showDarkNotice._timer);
-  showDarkNotice._timer=setTimeout(()=>box.classList.remove('show'),12000);
-}
 
 async function downloadScheduleRecognitionJson(){
   const r=await fetch('/sync-schedule/recognize',{headers:authHeaders()});
   const data=await r.json();
   if(!r.ok) return showNotice(data.detail||'Ошибка синхронизации с таблицей');
   const values=Array.isArray(data.values)?data.values:[];
-  if(!values.length) return showDarkNotice('Список пуст');
-  showDarkNotice(values.map((x,i)=>`${i+1}. ${x}`));
+  console.clear();
+  if(!values.length){
+    console.log('Список пуст');
+    return showNotice('Список пуст. Данные выведены в терминал браузера (console).');
+  }
+  console.log('Синхронизация с таблицей — список значений:');
+  values.forEach((x,i)=>console.log(`${i+1}. ${x}`));
+  showNotice('Список выведен в терминал браузера (console).');
 }
 function askConfirm(text){
   return new Promise(resolve => {
