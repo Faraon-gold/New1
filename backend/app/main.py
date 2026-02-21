@@ -1005,8 +1005,10 @@ def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
 
 
 def _is_group_value(value: str) -> bool:
-    text = value.lower()
-    return ("группа" in text) or ("гр." in text) or ("гр " in text) or text.startswith("гр")
+    text = value.lower().strip()
+    has_group_marker = ("группа" in text) or ("гр." in text) or ("гр " in text) or text.startswith("гр")
+    has_text_and_people_count = bool(re.search(r"[A-Za-zА-Яа-яЁё].*\(\d+\)", value))
+    return has_group_marker or has_text_and_people_count
 
 
 def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[str], List[str]]:
@@ -1036,6 +1038,8 @@ def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[st
                 group_values.append(value)
                 continue
 
+            if value.isdigit():
+                continue
             if value in seen_main:
                 continue
             seen_main.add(value)
