@@ -1004,25 +1004,44 @@ def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
     return list(csv.reader(io.StringIO(csv_text)))
 
 
-def _collect_unique_values_from_c_column(rows: List[List[str]]) -> List[str]:
+def _is_group_value(value: str) -> bool:
+    text = value.lower()
+    return ("группа" in text) or ("гр." in text) or ("гр " in text) or text.startswith("гр")
+
+
+def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[str], List[str]]:
     # 4th row in spreadsheet => index 3
     start_row_index = 3
     start_col_index = 2  # column C
 
     max_cols = max((len(row) for row in rows), default=0)
-    seen = set()
-    result: List[str] = []
+    seen_main = set()
+    seen_group = set()
+    main_values: List[str] = []
+    group_values: List[str] = []
 
     for col_idx in range(start_col_index, max_cols):
         for row_idx in range(start_row_index, len(rows)):
             row = rows[row_idx]
             value = row[col_idx].strip() if col_idx < len(row) else ""
-            if not value or value in seen:
+            if not value:
                 continue
-            seen.add(value)
-            result.append(value)
+            if ":" in value:
+                continue
 
-    return result
+            if _is_group_value(value):
+                if value in seen_group:
+                    continue
+                seen_group.add(value)
+                group_values.append(value)
+                continue
+
+            if value in seen_main:
+                continue
+            seen_main.add(value)
+            main_values.append(value)
+
+    return main_values, group_values
 
 
 @app.get("/sync-schedule/recognize")
@@ -1030,8 +1049,8 @@ def collect_sheet_unique_values(current_user: models.User = Depends(get_current_
     check_role_access(current_user, ["admin"])
     try:
         rows = _fetch_google_sheet_rows_for_sync_button()
-        values = _collect_unique_values_from_c_column(rows)
-        return {"values": values}
+        values, group_values = _collect_unique_values_from_c_column(rows)
+        return {"values": values, "group_values": group_values}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error collecting values from sheet: {str(e)}")
 

@@ -167,14 +167,18 @@ async function downloadScheduleRecognitionJson(){
   const data=await r.json();
   if(!r.ok) return showNotice(data.detail||'Ошибка синхронизации с таблицей');
   const values=Array.isArray(data.values)?data.values:[];
+  const groupValues=Array.isArray(data.group_values)?data.group_values:[];
   console.clear();
-  if(!values.length){
-    console.log('Список пуст');
-    return showNotice('Список пуст. Данные выведены в терминал браузера (console).');
-  }
-  console.log('Синхронизация с таблицей — список значений:');
+
+  console.log('Синхронизация с таблицей — основной список:');
+  if(!values.length) console.log('Список пуст');
   values.forEach((x,i)=>console.log(`${i+1}. ${x}`));
-  showNotice('Список выведен в терминал браузера (console).');
+
+  console.log('Синхронизация с таблицей — список групп:');
+  if(!groupValues.length) console.log('Список пуст');
+  groupValues.forEach((x,i)=>console.log(`${i+1}. ${x}`));
+
+  showNotice('Списки выведены в терминал браузера (console).');
 }
 function askConfirm(text){
   return new Promise(resolve => {
