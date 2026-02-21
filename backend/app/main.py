@@ -1005,7 +1005,10 @@ def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
 
 
 def _is_group_value(value: str) -> bool:
-    return bool(re.search(r"[A-Za-zА-Яа-яЁё].*\(\d+\)\s*$", value))
+    lowered = value.lower()
+    has_course_marker = "курс" in lowered
+    has_people_count = bool(re.search(r"[A-Za-zА-Яа-яЁё].*\(\d+\)\s*$", value))
+    return has_course_marker or has_people_count
 
 
 def _normalize_main_value(value: str) -> str:
@@ -1016,9 +1019,11 @@ def _normalize_main_value(value: str) -> str:
     while cleaned:
         updated = cleaned
         updated = re.sub(r"\s*(?:\((?:дистант|дистанционно)\)|дистант|дистанционно)\s*$", "", updated, flags=re.IGNORECASE)
-        updated = re.sub(r"\s+\d+[A-Za-zА-Яа-яЁё]?\.?\s*$", "", updated)
+        # trailing room with or without whitespace before digits (e.g. 'Е.С.146', ' 146', '402П')
+        updated = re.sub(r"(?<!\d)\d+[A-Za-zА-Яа-яЁё]?\.?\s*$", "", updated)
         updated = re.sub(r"\s+\d+\s*/\s*\d+\s*$", "", updated)
         updated = re.sub(r"\s*\([^)]*\)\s*$", "", updated)
+        updated = re.sub(r"(?:,\s*)?(?:знам\.|числ\.|знаменатель|числитель|завод\.)\s*$", "", updated, flags=re.IGNORECASE)
         updated = " ".join(updated.split()).strip()
         if updated == cleaned:
             break
