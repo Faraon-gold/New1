@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from . import models, schemas, auth, database
 from .google_sheets import GoogleSheetsSync
 from datetime import timedelta, date, time, datetime
-from typing import List, Dict, Any
+from typing import List
 import os
 import re
 import uuid
@@ -996,124 +996,43 @@ def get_my_attendance(current_user: models.User = Depends(get_current_user_role)
     ]
 
 
-def _is_service_cell(value: str) -> bool:
-    text = value.strip().lower()
-    if not text:
-        return True
-
-    service_fragments = [
-        "утверждаю", "подпись", "дата", "расписание", "график", "семестр",
-        "декан", "проректор", "факультет", "кафедра", "курс", "группа",
-        "понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье",
-    ]
-    if any(fragment in text for fragment in service_fragments):
-        return True
-
-    if re.fullmatch(r"[0-9.\-/: ]+", text):
-        return True
-
-    return False
-
-
-def _normalize_teacher_name(value: str) -> str | None:
-    text = " ".join(value.strip().split())
-    if not text:
-        return None
-
-    patterns = [
-        r"^[А-ЯЁ][а-яё\-]+\s+[А-ЯЁ]\.[А-ЯЁ]\.$",
-        r"^[А-ЯЁ][а-яё\-]+\s+[А-ЯЁ][а-яё\-]+\s+[А-ЯЁ][а-яё\-]+$",
-        r"^[A-Z][a-z\-]+\s+[A-Z]\.[A-Z]\.$",
-    ]
-    for pattern in patterns:
-        if re.fullmatch(pattern, text):
-            return text
-    return None
-
-
-def _normalize_subject_name(value: str) -> str | None:
-    text = " ".join(value.strip().split())
-    if len(text) < 4:
-        return None
-    if _is_service_cell(text):
-        return None
-    if _normalize_teacher_name(text):
-        return None
-
-    if re.fullmatch(r"[A-Za-zА-Яа-яЁё0-9\-_.]+", text) and len(text) <= 3:
-        return None
-
-    has_letters = bool(re.search(r"[A-Za-zА-Яа-яЁё]", text))
-    return text if has_letters else None
-
-
-def _fetch_google_sheet_rows_for_recognition() -> List[List[str]]:
+def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
     csv_url = GOOGLE_SHEET_URL.split("/edit")[0] + "/export?format=csv&gid=1653075363"
     response = requests.get(csv_url, timeout=25)
     response.raise_for_status()
     return list(csv.reader(io.StringIO(response.text)))
 
 
-def _recognize_subjects_and_teachers(rows: List[List[str]]) -> Dict[str, Any]:
-    recognized_pairs: List[Dict[str, Any]] = []
-    subjects: Dict[str, None] = {}
-    teachers: Dict[str, None] = {}
+def _collect_unique_values_from_c_column(rows: List[List[str]]) -> List[str]:
+    # 4th row in spreadsheet => index 3
+    start_row_index = 3
+    start_col_index = 2  # column C
 
-    for row_index, row in enumerate(rows, start=1):
-        non_empty_cells = [" ".join((cell or "").split()) for cell in row if (cell or "").strip()]
-        if not non_empty_cells:
-            continue
+    max_cols = max((len(row) for row in rows), default=0)
+    seen = set()
+    result: List[str] = []
 
-        teachers_in_row = []
-        subjects_in_row = []
-
-        for cell in non_empty_cells:
-            teacher = _normalize_teacher_name(cell)
-            if teacher:
-                teachers_in_row.append(teacher)
-                teachers[teacher] = None
+    for col_idx in range(start_col_index, max_cols):
+        for row_idx in range(start_row_index, len(rows)):
+            row = rows[row_idx]
+            value = row[col_idx].strip() if col_idx < len(row) else ""
+            if not value or value in seen:
                 continue
+            seen.add(value)
+            result.append(value)
 
-            subject = _normalize_subject_name(cell)
-            if subject:
-                subjects_in_row.append(subject)
-                subjects[subject] = None
-
-        if not teachers_in_row or not subjects_in_row:
-            continue
-
-        for teacher in teachers_in_row:
-            subject = subjects_in_row[0]
-            recognized_pairs.append(
-                {
-                    "row": row_index,
-                    "subject": subject,
-                    "teacher": teacher,
-                }
-            )
-
-    return {
-        "source_url": GOOGLE_SHEET_URL,
-        "algorithm": [
-            "1. Проанализировать переданную таблицу.",
-            "2. Найти в ней строки, содержащие название дисциплины и фамилию с инициалами преподавателя.",
-            "3. Игнорировать служебные строки (заголовки, подписи, 'Утверждаю', даты и т.д.).",
-            "4. Вернуть результат строго в формате JSON.",
-        ],
-        "recognized_pairs": recognized_pairs,
-        "subjects": list(subjects.keys()),
-        "teachers": list(teachers.keys()),
-    }
+    return result
 
 
 @app.get("/sync-schedule/recognize")
-def recognize_schedule_entities(current_user: models.User = Depends(get_current_user_role)):
+def collect_sheet_unique_values(current_user: models.User = Depends(get_current_user_role)):
     check_role_access(current_user, ["admin"])
     try:
-        rows = _fetch_google_sheet_rows_for_recognition()
-        return _recognize_subjects_and_teachers(rows)
+        rows = _fetch_google_sheet_rows_for_sync_button()
+        values = _collect_unique_values_from_c_column(rows)
+        return {"values": values}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error recognizing schedule entities: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error collecting values from sheet: {str(e)}")
 
 
 @app.post("/sync-schedule")
