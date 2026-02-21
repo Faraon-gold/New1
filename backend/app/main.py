@@ -1012,10 +1012,13 @@ def _normalize_main_value(value: str) -> str:
     cleaned = value.replace("?", "")
     cleaned = " ".join(cleaned.split()).strip()
 
-    # remove trailing distance/auditorium markers repeatedly
+    # remove trailing auditorium/extra markers repeatedly
     while cleaned:
-        updated = re.sub(r"\s*(?:\((?:дистант|дистанционно)\)|дистант|дистанционно)\s*$", "", cleaned, flags=re.IGNORECASE)
+        updated = cleaned
+        updated = re.sub(r"\s*(?:\((?:дистант|дистанционно)\)|дистант|дистанционно)\s*$", "", updated, flags=re.IGNORECASE)
         updated = re.sub(r"\s+\d+[A-Za-zА-Яа-яЁё]?\.?\s*$", "", updated)
+        updated = re.sub(r"\s+\d+\s*/\s*\d+\s*$", "", updated)
+        updated = re.sub(r"\s*\([^)]*\)\s*$", "", updated)
         updated = " ".join(updated.split()).strip()
         if updated == cleaned:
             break
@@ -1025,8 +1028,8 @@ def _normalize_main_value(value: str) -> str:
 
 
 def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[str], List[str]]:
-    # 4th row in spreadsheet => index 3
-    start_row_index = 3
+    # 2nd row in spreadsheet => index 1
+    start_row_index = 1
     start_col_index = 2  # column C
 
     max_cols = max((len(row) for row in rows), default=0)
