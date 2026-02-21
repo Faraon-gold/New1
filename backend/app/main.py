@@ -1005,10 +1005,13 @@ def _fetch_google_sheet_rows_for_sync_button() -> List[List[str]]:
 
 
 def _is_group_value(value: str) -> bool:
-    text = value.lower().strip()
-    has_group_marker = ("группа" in text) or ("гр." in text) or ("гр " in text) or text.startswith("гр")
-    has_text_and_people_count = bool(re.search(r"[A-Za-zА-Яа-яЁё].*\(\d+\)", value))
-    return has_group_marker or has_text_and_people_count
+    return bool(re.search(r"[A-Za-zА-Яа-яЁё].*\(\d+\)\s*$", value))
+
+
+def _normalize_main_value(value: str) -> str:
+    # remove trailing auditorium markers like: "478", "478.", "402П", "?"
+    cleaned = re.sub(r"\s+(\?|\d+[A-Za-zА-Яа-яЁё]?)\.?\s*$", "", value).strip()
+    return cleaned
 
 
 def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[str], List[str]]:
@@ -1025,7 +1028,7 @@ def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[st
     for col_idx in range(start_col_index, max_cols):
         for row_idx in range(start_row_index, len(rows)):
             row = rows[row_idx]
-            value = row[col_idx].strip() if col_idx < len(row) else ""
+            value = " ".join((row[col_idx] if col_idx < len(row) else "").split())
             if not value:
                 continue
             if ":" in value:
@@ -1038,12 +1041,15 @@ def _collect_unique_values_from_c_column(rows: List[List[str]]) -> tuple[List[st
                 group_values.append(value)
                 continue
 
-            if value.isdigit():
+            normalized_value = _normalize_main_value(value)
+            if not normalized_value:
                 continue
-            if value in seen_main:
+            if normalized_value.isdigit():
                 continue
-            seen_main.add(value)
-            main_values.append(value)
+            if normalized_value in seen_main:
+                continue
+            seen_main.add(normalized_value)
+            main_values.append(normalized_value)
 
     return main_values, group_values
 
