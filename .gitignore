@@ -1,0 +1,4 @@
+# Dependency directories
+node_modules/
+frontend/node_modules/
+new_frontend/node_modules/

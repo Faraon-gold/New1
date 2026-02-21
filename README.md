@@ -1,34 +1,57 @@
-# University Attendance System
+# Система учёта посещаемости университета
 
-This is a web application for managing university attendance with user authentication.
+Веб-приложение для учёта посещаемости студентов с авторизацией, ролями пользователей и инструментами для администрирования учебного процесса.
 
-## Features
-- User registration and login
-- Role-based access (student, teacher, admin, dean)
-- User dashboard with profile information
-- Attendance tracking system
+## Возможности
+- регистрация и вход пользователей;
+- разграничение доступа по ролям (студент, староста, преподаватель, деканат, администратор);
+- личный кабинет пользователя;
+- ведение посещаемости по предметам и учебным группам;
+- административное управление пользователями, группами, предметами и связями «группа-предмет-преподаватель».
 
-## How to Run
-
-1. Make sure you have Docker and Docker Compose installed
-2. Run the following command to start the application:
+## Запуск проекта (Docker Compose)
+1. Убедитесь, что установлены:
+   - Docker;
+   - Docker Compose.
+2. В корне проекта выполните:
 
 ```bash
 docker-compose up --build
 ```
 
-3. Access the application:
-   - Frontend: http://localhost:3000
-   - Backend API docs: http://localhost:8000/docs
+3. После запуска сервисы будут доступны по адресам:
+   - фронтенд: `http://localhost:3000`;
+   - backend API (Swagger): `http://localhost:8000/docs`.
 
-## Development
+## Локальная разработка
+### Backend
+1. Установите зависимости:
 
-To develop locally:
-1. For backend development, install the requirements from `/backend/requirements.txt`
-2. For frontend development, navigate to `/frontend` and run `npm install` followed by `npm run dev`
+```bash
+pip install -r backend/requirements.txt
+```
 
-## Technologies Used
+2. Запустите backend (пример):
 
-- Backend: Python, FastAPI, SQLAlchemy, PostgreSQL
-- Frontend: HTML, CSS, JavaScript, Express.js
-- Deployment: Docker, Docker Compose
+```bash
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Frontend
+1. Перейдите в каталог frontend:
+
+```bash
+cd frontend
+```
+
+2. Установите зависимости и запустите dev-сервер:
+
+```bash
+npm install
+npm run dev
+```
+
+## Технологии
+- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL;
+- **Frontend:** HTML, CSS, JavaScript, Express.js;
+- **Инфраструктура:** Docker, Docker Compose.
