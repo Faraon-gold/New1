@@ -6,12 +6,7 @@
     <title>Система учёта посещаемости</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -19,118 +14,92 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
+            position: relative;
         }
+
+        .bg-shape {
+            position: absolute;
+            border-radius: 999px;
+            filter: blur(2px);
+            opacity: .4;
+            z-index: 0;
+        }
+        .shape-1 { width: 260px; height: 260px; background: #8ec5ff; top: -60px; left: -40px; }
+        .shape-2 { width: 320px; height: 320px; background: #ffe4a3; bottom: -120px; right: -60px; }
+        .shape-3 { width: 170px; height: 170px; background: #cbb8ff; top: 18%; right: 12%; }
 
         .container {
-            max-width: 800px;
-            width: 90%;
+            position: relative;
+            z-index: 1;
+            max-width: 860px;
+            width: 92%;
             text-align: center;
-            padding: 2rem;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2.2rem;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,.6);
+            border-radius: 20px;
+            box-shadow: 0 14px 32px rgba(0,0,0,0.12);
         }
 
-        .logo {
-            width: 120px;
-            height: 120px;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            border-radius: 50%;
-            margin: 0 auto 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2rem;
-            font-weight: bold;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 1rem;
-            font-size: 2.5rem;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
+        h1 { color: #2d3748; margin-bottom: 0.9rem; font-size: 2.45rem; }
+        .subtitle { color: #5f6c80; font-size: 1.16rem; margin-bottom: 2rem; line-height: 1.65; }
 
         .btn {
             background: linear-gradient(45deg, #2196F3, #21CBF3);
             color: white;
-            padding: 1rem 2rem;
+            padding: 1rem 2.3rem;
             border: none;
             border-radius: 50px;
-            font-size: 1.1rem;
+            font-size: 1.08rem;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform .2s, box-shadow .2s;
             text-decoration: none;
             display: inline-block;
         }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
-        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(33,150,243,.35); }
 
         .features {
             margin-top: 2rem;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: .9rem;
             text-align: left;
         }
-
         .feature {
-            background: #f8f9fa;
+            background: #f8f9fb;
             padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid #2196F3;
+            border-radius: 10px;
+            border: 1px solid #e6ecf3;
         }
+        .feature strong { color: #1f4f7d; }
 
         @media (max-width: 768px) {
-            .container {
-                width: 95%;
-                padding: 1.5rem;
-            }
-            
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .subtitle {
-                font-size: 1rem;
-            }
+            .container { width: 95%; padding: 1.4rem; }
+            h1 { font-size: 2rem; }
+            .subtitle { font-size: 1rem; }
         }
     </style>
 </head>
 <body>
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+    <div class="bg-shape shape-3"></div>
+
     <div class="container">
-        <div class="logo">AS</div>
         <h1>Система учёта посещаемости</h1>
         <p class="subtitle">
             Современное решение для эффективного управления посещаемостью студентов.<br>
             Быстро, надежно и удобно для преподавателей, студентов и администрации.
         </p>
-        
+
         <a href="/login" class="btn">Войти</a>
-        
+
         <div class="features">
-            <div class="feature">
-                <strong>Расписание</strong><br>
-                Удобный доступ к расписанию занятий
-            </div>
-            <div class="feature">
-                <strong>Посещаемость</strong><br>
-                Отслеживание посещений в реальном времени
-            </div>
-            <div class="feature">
-                <strong>Управление</strong><br>
-                Гибкая система ролей и прав доступа
-            </div>
+            <div class="feature"><strong>Расписание</strong><br>Удобный доступ к расписанию занятий</div>
+            <div class="feature"><strong>Посещаемость</strong><br>Отслеживание посещений в реальном времени</div>
+            <div class="feature"><strong>Управление</strong><br>Гибкая система ролей и прав доступа</div>
         </div>
     </div>
 </body>

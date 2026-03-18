@@ -3,69 +3,64 @@
 {% block title %}Вход в систему - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="text-center">Вход в систему учёта посещаемости</h3>
-            </div>
-            <div class="card-body">
-                <form id="loginForm">
-                    <div class="mb-3">
-                        <label for="login" class="form-label">Логин:</label>
-                        <input type="text" class="form-control" id="login" name="login" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Пароль:</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Войти</button>
-                </form>
-            </div>
-        </div>
+<style>
+  .login-wrap{min-height:80vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .decor{position:absolute;border-radius:999px;opacity:.35;filter:blur(2px)}
+  .decor.a{width:220px;height:220px;background:#8ec5ff;left:6%;top:10%}
+  .decor.b{width:280px;height:280px;background:#ffe4a3;right:8%;bottom:8%}
+  .login-card{position:relative;z-index:1;width:100%;max-width:500px;background:rgba(255,255,255,.95);backdrop-filter:blur(4px);border:1px solid #e8eef7;border-radius:16px;box-shadow:0 18px 40px rgba(0,0,0,.12);padding:1rem}
+</style>
+<div class="login-wrap">
+  <div class="decor a"></div><div class="decor b"></div>
+  <div class="login-card card">
+    <div class="card-header bg-transparent border-0 pt-3">
+      <h3 class="text-center mb-0">Вход в систему учёта посещаемости</h3>
     </div>
+    <div class="card-body">
+      <form id="loginForm">
+        <div id="login-error" class="alert alert-danger d-none" role="alert"></div>
+        <div class="mb-3">
+          <label for="login" class="form-label">Логин:</label>
+          <input type="text" class="form-control" id="login" name="login" required>
+        </div>
+        <div class="mb-3">
+          <label for="password" class="form-label">Пароль:</label>
+          <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Войти</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script>
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
     const formData = new FormData(e.target);
-    
-    // Submit using JSON format to the backend app's api/login endpoint
+    const err=document.getElementById('login-error');
+    err.classList.add('d-none');
+    err.textContent='';
+
     const response = await fetch('/api/login', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            login: formData.get('login'),
-            password: formData.get('password')
-        })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({login: formData.get('login'), password: formData.get('password')})
     });
-    
+
     if (response.ok) {
         const data = await response.json();
-        // Store the token in localStorage
         localStorage.setItem('access_token', data.access_token);
-        
-        // Set the token in a cookie that can be read by the backend
         document.cookie = `access_token=${data.access_token}; path=/; SameSite=Strict`;
-        
-        // Redirect to the app page which will check the token and redirect appropriately
         window.location.href = '/app';
     } else {
-        // Show error message - handle both 401 and 422 errors
         let errorMessage = 'Неверный логин или пароль';
         try {
             const errorData = await response.json();
-            if (errorData.detail) {
-                errorMessage = errorData.detail;
-            }
-        } catch (e) {
-            // If parsing JSON fails, keep the default error message
-        }
-        alert(errorMessage);
+            if (errorData.detail) errorMessage = errorData.detail;
+        } catch (e) {}
+        err.textContent = errorMessage || 'Неверный логин или пароль';
+        err.classList.remove('d-none');
     }
 });
 </script>
